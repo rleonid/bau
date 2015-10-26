@@ -1,5 +1,10 @@
 
-#regression test
+bau:
+	ocamlbuild -use-ocamlfind -package bigarray -I src/lib bau.cma
 
+#regression test
 reg:
 	ocamlbuild -use-ocamlfind -package lacaml -I src/test regt.native
+
+clean:
+	ocamlbuild -clean
