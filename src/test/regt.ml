@@ -1,22 +1,27 @@
 
 
+open Bau.BigarrayO
+
 let test_size = 10
 let max_matrix_size = 10
 
-(*
+let ms () = (Random.int max_matrix_size) + 1
+let rf () = Random.float 1.0
+
 let double_mat n m =
-  let m = Array2.create Float64 Fortran_layout n m in
-  for i = 1 
-   *)
+  A2.init Float64 Fortran_layout n m (fun _ _ -> rf ())
+
+let complex_mat n m =
+  A2.init Complex64 Fortran_layout n m
+    (fun _ _ -> {Complex.re = rf (); im = rf ()})
 
 let generate_test oc =
   let fmt = Format.formatter_of_out_channel oc in
-  let ms () = (Random.int max_matrix_size) + 1 in
   for i = 1 to test_size do
-    Lacaml_Io.Toplevel.pp_fmat fmt (Lacaml.D.Mat.random (ms ()) (ms ()));
+    Lacaml_io.Toplevel.pp_fmat fmt (double_mat (ms ()) (ms ()));
   done;
   for i = 1 to test_size do
-    Lacaml_Io.Toplevel.pp_cmat fmt (Lacaml.Z.Mat.random (ms ()) (ms ()));
+    Lacaml_io.Toplevel.pp_cmat fmt (complex_mat (ms ()) (ms ()));
   done
 
 let () =
