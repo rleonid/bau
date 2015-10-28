@@ -114,6 +114,7 @@ let pp_mat_gen
     ?(ellipsis = !Context.ellipsis_default)
     ?(vertical_context = !Context.vertical_default)
     ?(horizontal_context = !Context.horizontal_default)
+    ?(label_layout=false)
     pp_el ppf mat =
   let m = Array2.dim1 mat in
   if m > 0 then (
@@ -245,6 +246,11 @@ let pp_mat_gen
                 if has_ver then
                   set_labels ~src_r:src_row_ofs ~dst_r:vertical_context;
                 let head0 = if pp_head <> None then get_label 0 else "" in
+                let head0 =
+                  if head0 = "" && label_layout then begin
+                    if isf then "F" else "C"
+                  end else head0
+                in
                 let foot0 = if pp_foot <> None then get_label (m + 1) else "" in
                 let max_len_row_labels = !max_len_row_labels_ref in
                 let padded_row_labels =
@@ -782,7 +788,9 @@ module Toplevel = struct
   (* Matrices *)
 
   let gen_pp_mat pp_el ppf mat =
-    pp_mat_gen ~pp_head:pp_labeled_col ~pp_left:pp_labeled_row pp_el ppf mat
+    pp_mat_gen ~pp_head:pp_labeled_col ~pp_left:pp_labeled_row
+      ~label_layout:true
+      pp_el ppf mat
 
   let pp_fmat ppf mat = gen_pp_mat pp_float_el ppf mat
   let pp_cmat ppf mat = gen_pp_mat pp_complex_el ppf mat
