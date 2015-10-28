@@ -1,6 +1,6 @@
 
 bau:
-	ocamlbuild -use-ocamlfind -package bigarray -I src/lib bau.cma
+	ocamlbuild -use-ocamlfind -package bigarray -I src/lib -I src/lib_io lacaml_io.cma bau.cma
 
 #regression test
 reg:
