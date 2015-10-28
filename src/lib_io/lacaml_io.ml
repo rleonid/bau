@@ -94,6 +94,13 @@ module Context = struct
     | Some virt -> min real (2 * virt), virt
 end
 
+let isf (type ll)(l : ll layout) =
+  match l with
+  | Fortran_layout -> true
+  | C_layout       -> false
+
+let omap d f = function | None -> d | Some o -> f o
+
 let pp_mat_gen
     ?(pp_open = pp_open)
     ?(pp_close = pp_close)
@@ -128,6 +135,7 @@ let pp_mat_gen
                 pp_end_col ppf ~row ~col:n;
                 pp_print_string ppf str))
       in
+      let isf = isf (Array2.layout mat) in
       let has_ver = disp_m < m in
       let ver_stop = if has_ver then vertical_context - 1 else m - 1 in
       let has_hor = disp_n < n in
@@ -184,14 +192,8 @@ let pp_mat_gen
             end;
             heads_foots
           in
-          let heads, foots =
-            match pp_head, pp_foot with
-            | None, None -> [||], [||]
-            | Some pp_head, None -> fmt_head_foot pp_head, [||]
-            | None, Some pp_foot -> [||], fmt_head_foot pp_foot
-            | Some pp_head, Some pp_foot ->
-                fmt_head_foot pp_head, fmt_head_foot pp_foot
-          in
+          let heads = omap [||] fmt_head_foot pp_head in
+          let foots = omap [||] fmt_head_foot pp_foot in
           let many_strs = Array.make_matrix disp_m disp_n "" in
           let fmt_strs ~src_row_ofs ~dst_row_ofs r =
             let row = many_strs.(dst_row_ofs + r) in
