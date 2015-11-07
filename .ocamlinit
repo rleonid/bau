@@ -1,0 +1,7 @@
+#directory "_build/src/lib"
+#directory "_build/src/lib_io"
+#load_rec "bau.cma"
+#load_rec "lacaml_io.cma"
+#install_printer Lacaml_io.Toplevel.pp_fmat;;
+#use "matrices.ml"
+let n,a,b,c,d = gen_matrix 7 10 ;;
