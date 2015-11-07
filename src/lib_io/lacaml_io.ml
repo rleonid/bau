@@ -137,13 +137,14 @@ let pp_mat_gen
                 pp_print_string ppf str))
       in
       let isf = isf (Array2.layout mat) in
+      let array_start_idx = if isf then 1 else 0 in
       let has_ver = disp_m < m in
       let ver_stop = if has_ver then vertical_context - 1 else m - 1 in
       let has_hor = disp_n < n in
       let hor_stop = if has_hor then horizontal_context - 1 else n - 1 in
-      let src_col_ofs = n - horizontal_context + 1 in
+      let src_col_ofs = n - horizontal_context + array_start_idx in
       let dst_col_ofs = horizontal_context in
-      let src_row_ofs = m - vertical_context + 1 in
+      let src_row_ofs = m - vertical_context + array_start_idx in
       let dst_row_ofs = vertical_context in
       let gen_fmt_row_body ~pp_nth ?(ellipsis = ellipsis)
             ?(dst_col_ofs = dst_col_ofs) src_r =
@@ -183,7 +184,8 @@ let pp_mat_gen
               heads_foots.(dst_ofs_c) <- head_foot;
               max_lens.(dst_ofs_c) <- max max_lens.(dst_ofs_c) head_foot_len;
             in
-            for c = 0 to hor_stop do fmt_col ~src_ofs:1 ~dst_ofs:0 c done;
+            for c = 0 to hor_stop do
+              fmt_col ~src_ofs:array_start_idx  ~dst_ofs:0 c done;
             if has_hor then begin
               let src_ofs = n - horizontal_context + 1 in
               let dst_ofs = horizontal_context in
@@ -208,7 +210,7 @@ let pp_mat_gen
               if str_len > max_lens.(dst_c) then max_lens.(dst_c) <- str_len
             in
             for c = 0 to hor_stop do
-              fmt_col ~src_col_ofs:1 ~dst_col_ofs:0 c
+              fmt_col ~src_col_ofs:array_start_idx ~dst_col_ofs:0 c
             done;
             if has_hor then begin
               for c = 0 to horizontal_context - 1 do
@@ -217,7 +219,7 @@ let pp_mat_gen
             end
           in
           for r = 0 to ver_stop do
-            fmt_strs ~src_row_ofs:1 ~dst_row_ofs:0 r
+            fmt_strs ~src_row_ofs:array_start_idx ~dst_row_ofs:0 r
           done;
           if has_ver then begin
             for r = 0 to vertical_context - 1 do
@@ -242,14 +244,15 @@ let pp_mat_gen
                     row_labels.(dst_r + i) <- get_label (src_r + i)
                   done
                 in
-                set_labels ~src_r:1 ~dst_r:0;
+                set_labels ~src_r:array_start_idx ~dst_r:0;
                 if has_ver then
                   set_labels ~src_r:src_row_ofs ~dst_r:vertical_context;
-                let head0 = if pp_head <> None then get_label 0 else "" in
                 let head0 =
-                  if head0 = "" && label_layout then begin
+                  if label_layout then begin
                     if isf then "F" else "C"
-                  end else head0
+                  end else if pp_head <> None then
+                    get_label 0
+                  else ""
                 in
                 let foot0 = if pp_foot <> None then get_label (m + 1) else "" in
                 let max_len_row_labels = !max_len_row_labels_ref in
@@ -768,8 +771,8 @@ let pp_oimat ppf mat = pp_omat ppf pp_int32_el mat
 module Toplevel = struct
   (* Vectors *)
 
-  let pp_labeled_col ppf c = if c > 0 then fprintf ppf "C%d" c
-  let pp_labeled_row ppf r = if r > 0 then fprintf ppf "R%d" r
+  let pp_labeled_col ppf c = if c >= 0 then fprintf ppf "C%d" c
+  let pp_labeled_row ppf r = if r >= 0 then fprintf ppf "R%d" r
 
   let gen_pp_vec pp_el ppf vec =
     pp_mat_gen ~pp_left:pp_labeled_row pp_el ppf (from_col_vec vec)
