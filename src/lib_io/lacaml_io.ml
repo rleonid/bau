@@ -136,8 +136,7 @@ let pp_mat_gen
                 pp_end_col ppf ~row ~col:n;
                 pp_print_string ppf str))
       in
-      let isf = isf (Array2.layout mat) in
-      let array_start_idx = if isf then 1 else 0 in
+      let array_start_idx = if isf (Array2.layout mat) then 1 else 0 in
       let has_ver = disp_m < m in
       let ver_stop = if has_ver then vertical_context - 1 else m - 1 in
       let has_hor = disp_n < n in
@@ -249,7 +248,7 @@ let pp_mat_gen
                   set_labels ~src_r:src_row_ofs ~dst_r:vertical_context;
                 let head0 =
                   if label_layout then begin
-                    if isf then "F" else "C"
+                    if isf (Array2.layout mat) then "F" else "C"
                   end else if pp_head <> None then
                     get_label 0
                   else ""
