@@ -3,5 +3,10 @@
 #load_rec "bau.cma"
 #load_rec "lacaml_io.cma"
 #install_printer Lacaml_io.Toplevel.pp_fmat;;
-#use "matrices.ml"
-let n,a,b,c,d = gen_matrix 7 10 ;;
+#install_printer Lacaml_io.Toplevel.pp_cmat;;
+#install_printer Lacaml_io.Toplevel.pp_imat;;
+#install_printer Lacaml_io.Toplevel.pp_inamat;;
+#install_printer Lacaml_io.Toplevel.pp_i32mat;;
+#install_printer Lacaml_io.Toplevel.pp_i64mat;;
+#install_printer Lacaml_io.Toplevel.pp_charmat;;
+#use "src/scripts/matrices.ml"
