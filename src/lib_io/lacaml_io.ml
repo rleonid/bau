@@ -370,7 +370,16 @@ let pp_complex_el_default = ref pp_complex_el_default_fun
 let pp_float_el ppf el = !pp_float_el_default ppf el
 let pp_complex_el ppf el = !pp_complex_el_default ppf el
 
+let pp_int_el ppf n = fprintf ppf "%d" n
+let pp_intna_el ppf n = fprintf ppf "%nd" n
 let pp_int32_el ppf n = fprintf ppf "%ld" n
+let pp_int64_el ppf n = fprintf ppf "%Ld" n
+let pp_char_el ppf c =
+  let i = Char.code c in
+  if i < 32 || i > 127 then
+    fprintf ppf " "
+  else
+    fprintf ppf "%c" c
 
 
 (* Pretty-printing in standard style *)
@@ -796,7 +805,11 @@ module Toplevel = struct
 
   let pp_fmat ppf mat = gen_pp_mat pp_float_el ppf mat
   let pp_cmat ppf mat = gen_pp_mat pp_complex_el ppf mat
-  let pp_imat ppf mat = gen_pp_mat pp_int32_el ppf mat
+  let pp_imat ppf mat = gen_pp_mat pp_int_el ppf mat
+  let pp_inamat ppf mat = gen_pp_mat pp_intna_el ppf mat
+  let pp_i32mat ppf mat = gen_pp_mat pp_int32_el ppf mat
+  let pp_i64mat ppf mat = gen_pp_mat pp_int64_el ppf mat
+  let pp_charmat ppf mat = gen_pp_mat pp_char_el ppf mat
 
   let lsc n = Context.set_dim_defaults (Some (Context.create n))
 end
