@@ -249,9 +249,7 @@ let pp_mat_gen
                 let head0 =
                   if label_layout then begin
                     if isf (Array2.layout mat) then "F" else "C"
-                  end else if pp_head <> None then
-                    get_label 0
-                  else ""
+                  end else ""
                 in
                 let foot0 = if pp_foot <> None then get_label (m + 1) else "" in
                 let max_len_row_labels = !max_len_row_labels_ref in
@@ -800,7 +798,7 @@ module Toplevel = struct
 
   let gen_pp_mat pp_el ppf mat =
     pp_mat_gen ~pp_head:pp_labeled_col ~pp_left:pp_labeled_row
-      ~label_layout:true
+      ~label_layout:false
       pp_el ppf mat
 
   let pp_fmat ppf mat = gen_pp_mat pp_float_el ppf mat
