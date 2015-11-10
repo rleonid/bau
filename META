@@ -1,0 +1,6 @@
+description="Bigarray utils"
+requires=""
+version="0.0.0"
+directory="."
+archive(byte)="bau.cma"
+archive(native)="bau.cmxa"

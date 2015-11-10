@@ -1,7 +1,6 @@
-#directory "_build/src/lib"
-#directory "_build/src/lib_io"
+#directory "_build/src/"
 #load_rec "bau.cma"
-#load_rec "lacaml_io.cma"
+open Bau
 #install_printer Lacaml_io.Toplevel.pp_fmat;;
 #install_printer Lacaml_io.Toplevel.pp_cmat;;
 #install_printer Lacaml_io.Toplevel.pp_imat;;
