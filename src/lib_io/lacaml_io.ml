@@ -81,13 +81,18 @@ module Context = struct
 
   let ellipsis_default = ref "..."
 
-  let vertical_default, horizontal_default =
+  let vertical_default
+    , horizontal_default
+    , three_d_default =
     let context = if !Sys.interactive then Some 3 else None in
-    ref context, ref context
+    ref context
+    , ref context
+    , ref context
 
   let set_dim_defaults opt_n =
     vertical_default := opt_n;
-    horizontal_default := opt_n
+    horizontal_default := opt_n;
+    three_d_default := opt_n
 
   let get_disp real = function
     | None -> real, real
@@ -772,9 +777,64 @@ let pp_ocmat ppf mat = pp_omat ppf pp_complex_el mat
 let pp_oimat ppf mat = pp_omat ppf pp_int32_el mat
 
 
+module ThreeDimensionals = struct
+
+  let newlines s =
+    let n = String.length s in
+    let rec loop i d acc =
+      if i = n then
+        d, List.rev (n :: acc)
+      else
+       match String.index_from s i '\n' with
+       | p -> loop (p + 1) (max d (p - i)) (p :: acc)
+       | exception Not_found ->
+         (max d (n - i)), List.rev (n :: acc)
+    in
+    loop 0 0 []
+
+  let join ?(sep=`Middle " --- ") bl (wl, ll) br (wr, rr) =
+    let ll_len = List.length ll in
+    let rr_len = List.length rr in
+    let height = max ll_len rr_len in
+    let sep_w, sep =
+      match sep with
+      | `Always s -> String.length s, (fun _ -> s)
+      | `Middle s ->
+        let ls = String.length s in
+        let ws = String.make ls ' ' in
+        let rc = height / 2 in
+        ls, (fun i -> if i = rc then s else ws)
+    in
+    let siz = (wl + wr - 1 + sep_w) * height in
+    let buf = Buffer.create siz in
+    let pad_space amt = for i = 1 to amt do Buffer.add_char buf ' ' done in
+    let rec loop i pl pr ll rr =
+      match (ll, rr) with
+      | [],    []     -> buf
+      | [],    x      -> invalid_arg "right"
+      | x ,    []     -> invalid_arg "left"
+      | l::tl, r::tr  ->
+        let amtl = l - pl in
+        Buffer.add_substring buf bl pl amtl;
+        pad_space (wl - amtl);
+        Buffer.add_string buf (sep i);
+        let amtr = r - pr in
+        Buffer.add_substring buf br pr amtr;
+        pad_space (wr - amtr);
+        Buffer.add_char buf '\n';
+        loop (i + 1) (l + 1) (r + 1) tl tr
+    in
+    loop 0 0 0 ll rr
+
+end
+
 (* Good pretty-printers for toplevels *)
 
 module Toplevel = struct
+
+  (* Controlling context width*)
+  let lsc n = Context.set_dim_defaults (Some (Context.create n))
+
   (* Vectors *)
 
   let pp_labeled_col ppf c = if c >= 0 then fprintf ppf "C%d" c
@@ -782,10 +842,15 @@ module Toplevel = struct
 
   let gen_pp_vec pp_el ppf vec =
     pp_mat_gen ~pp_left:pp_labeled_row pp_el ppf (from_col_vec vec)
+      ~label_layout:false
 
   let pp_fvec ppf vec = gen_pp_vec pp_float_el ppf vec
   let pp_cvec ppf vec = gen_pp_vec pp_complex_el ppf vec
-  let pp_ivec ppf vec = gen_pp_vec pp_int32_el ppf vec
+  let pp_ivec ppf vec = gen_pp_vec pp_int_el ppf vec
+  let pp_inavec ppf vec = gen_pp_vec pp_intna_el ppf vec
+  let pp_i32vec ppf vec = gen_pp_vec pp_int32_el ppf vec
+  let pp_i64vec ppf vec = gen_pp_vec pp_int64_el ppf vec
+  let pp_charvec ppf vec = gen_pp_vec pp_char_el ppf vec
 
   let gen_pp_rvec pp_el ppf vec =
     pp_mat_gen ~pp_head:pp_labeled_row pp_el ppf (from_row_vec vec)
@@ -809,5 +874,25 @@ module Toplevel = struct
   let pp_i64mat ppf mat = gen_pp_mat pp_int64_el ppf mat
   let pp_charmat ppf mat = gen_pp_mat pp_char_el ppf mat
 
-  let lsc n = Context.set_dim_defaults (Some (Context.create n))
+  (* Array3d *)
+  (*  let gen_pp_3d pp_el ppf arr3d =
+    let pp_mat = gen_pp_mat pp_el in
+    let l = Array3.dim1 arr3d in
+    let disp_l, c = Context.get_disp l !Context.three_d_default in
+    let slice =
+      if isf (Array3.layout arr3d) then
+        (fun i -> Array3.slice_right_2 arr3d (i + 1))
+      else
+        (fun i -> Array3.slice_left_2 arr3d i)
+    in
+    let bs = Array.init l (fun i ->
+        let b = Buffer.create 32 in
+        let f = Format.format_of_buffer b in
+        pp_mat f (slice i);
+        ())
+    in
+    bs
+    *)
+
 end
+
