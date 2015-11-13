@@ -1,6 +1,17 @@
 #directory "_build/src/"
 #load_rec "bau.cma"
 open Bau
+
+(* Vectors *)
+#install_printer Lacaml_io.Toplevel.pp_fvec;;
+#install_printer Lacaml_io.Toplevel.pp_cvec;;
+#install_printer Lacaml_io.Toplevel.pp_ivec;;
+#install_printer Lacaml_io.Toplevel.pp_inavec;;
+#install_printer Lacaml_io.Toplevel.pp_i32vec;;
+#install_printer Lacaml_io.Toplevel.pp_i64vec;;
+#install_printer Lacaml_io.Toplevel.pp_charvec;;
+
+(* Matrices *)
 #install_printer Lacaml_io.Toplevel.pp_fmat;;
 #install_printer Lacaml_io.Toplevel.pp_cmat;;
 #install_printer Lacaml_io.Toplevel.pp_imat;;
@@ -9,3 +20,4 @@ open Bau
 #install_printer Lacaml_io.Toplevel.pp_i64mat;;
 #install_printer Lacaml_io.Toplevel.pp_charmat;;
 #use "src/scripts/matrices.ml"
+#use "src/scripts/thd.ml"
