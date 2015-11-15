@@ -844,7 +844,7 @@ module ThreeD = struct
     ?(ellipsis = !Context.ellipsis_default)
     ?matrix_separator
     ?(three_d_context = !Context.three_d_default)
-      pp_mat_to_buffer ppf width ar3 =
+    pp_mat_to_buffer ppf width ar3 =
     let all = slices_indices ar3 in
     let a_n = Array.length all in
     let disp_l, c = Context.get_disp a_n three_d_context in
@@ -870,7 +870,7 @@ module ThreeD = struct
 (*    let () = Printf.printf "--- sli length %d ----\n%!" n in*)
     let sep_len = 1 in
     let fill_width i =
-      let rec loop i w acc =
+      let rec loop new_row i w acc =
 (*        let () = Printf.printf "fill_width loop %d out of %n\n%!" i n in*)
         if w > width || i >= n then
           i, List.rev acc
@@ -878,13 +878,17 @@ module ThreeD = struct
           match sli.(i) with
           | E s as ee ->
             let s_len = String.length s in
-            loop (i + 1) (w + s_len) (ee :: acc)
+            loop new_row (i + 1) (w + s_len) (ee :: acc)
           | M j ->
-            let buf_j = pp_mat_to_buffer (cs j ar3) in
+            let buf_j =
+              if new_row
+              then pp_mat_to_buffer ~new_row (cs j ar3)
+              else pp_mat_to_buffer ~new_row (cs j ar3)
+            in
             let wb, h, p = newlines (Buffer.contents buf_j) in
-            loop (i + 1) (w + wb + sep_len) (M (wb, h, p) :: acc)
+            loop false (i + 1) (w + wb + sep_len) (M (wb, h, p) :: acc)
       in
-      loop i 0 []
+      loop true i 0 []
     in
     let buf = Buffer.create 32 in
     let rec loop i =
@@ -946,35 +950,38 @@ module Toplevel = struct
 
   (* Matrices *)
 
-  let gen_pp_mat pp_el ppf mat =
-    pp_mat_gen ~pp_head:pp_labeled_col ~pp_left:pp_labeled_row
-      ~label_layout:false
-      pp_el ppf mat
+  let gen_pp_mat pp_el ppf mat left_label =
+    if left_label then
+      pp_mat_gen ~pp_head:pp_labeled_col ~pp_left:pp_labeled_row
+        ~label_layout:false pp_el ppf mat
+    else
+      pp_mat_gen ~pp_head:pp_labeled_col
+        ~label_layout:false pp_el ppf mat
 
-  let pp_fmat ppf mat = gen_pp_mat pp_float_el ppf mat
-  let pp_cmat ppf mat = gen_pp_mat pp_complex_el ppf mat
-  let pp_imat ppf mat = gen_pp_mat pp_int_el ppf mat
-  let pp_inamat ppf mat = gen_pp_mat pp_intna_el ppf mat
-  let pp_i32mat ppf mat = gen_pp_mat pp_int32_el ppf mat
-  let pp_i64mat ppf mat = gen_pp_mat pp_int64_el ppf mat
-  let pp_charmat ppf mat = gen_pp_mat pp_char_el ppf mat
+  let pp_fmat ppf mat = gen_pp_mat pp_float_el ppf mat true
+  let pp_cmat ppf mat = gen_pp_mat pp_complex_el ppf mat true
+  let pp_imat ppf mat = gen_pp_mat pp_int_el ppf mat true
+  let pp_inamat ppf mat = gen_pp_mat pp_intna_el ppf mat true
+  let pp_i32mat ppf mat = gen_pp_mat pp_int32_el ppf mat true
+  let pp_i64mat ppf mat = gen_pp_mat pp_int64_el ppf mat true
+  let pp_charmat ppf mat = gen_pp_mat pp_char_el ppf mat true
 
   (* Array3d *)
   let wrap pp =
-    (fun m ->
+    (fun ~new_row m ->
       let b = Buffer.create 32 in
-      pp (Format.formatter_of_buffer b) m;
+      pp (Format.formatter_of_buffer b) m new_row;
       b)
 
   let gen_pp_3d = ThreeD.gen_pp_3d ~matrix_separator:";"
 
-  let pp_far3 ppf ar3 = gen_pp_3d (wrap pp_fmat) ppf Context.width ar3
-  let pp_car3 ppf ar3 = gen_pp_3d (wrap pp_cmat) ppf Context.width ar3
-  let pp_iar3 ppf ar3 = gen_pp_3d (wrap pp_imat) ppf Context.width ar3
-  let pp_inaar3 ppf ar3 = gen_pp_3d (wrap pp_inamat) ppf Context.width ar3
-  let pp_i32ar3 ppf ar3 = gen_pp_3d (wrap pp_i32mat) ppf Context.width ar3
-  let pp_i64ar3 ppf ar3 = gen_pp_3d (wrap pp_i64mat) ppf Context.width ar3
-  let pp_charar3 ppf ar3 = gen_pp_3d (wrap pp_charmat) ppf Context.width ar3
+  let pp_far3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_float_el)) ppf Context.width ar3
+  let pp_car3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_cmat)) ppf Context.width ar3
+  let pp_iar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_imat)) ppf Context.width ar3
+  let pp_inaar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_inamat)) ppf Context.width ar3
+  let pp_i32ar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_i32mat)) ppf Context.width ar3
+  let pp_i64ar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_i64mat)) ppf Context.width ar3
+  let pp_charar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_charmat)) ppf Context.width ar3
 
 end
 
