@@ -859,10 +859,8 @@ module ThreeD = struct
         with_ms all
     in
     let n = Array.length sli in
-(*    let () = Printf.printf "--- sli length %d ----\n%!" n in*)
     let fill_width i =
       let rec loop new_row i w hs printers =
-(*        let () = Printf.printf "fill_width loop %d out of %n\n%!" i n in*)
         if w > width || i >= n then
           i, hs, List.rev printers
         else
@@ -879,7 +877,6 @@ module ThreeD = struct
     in
     let buf = Buffer.create 32 in
     let rec loop i =
-(*      let () = Printf.printf "loop %d\n%!" i in *)
       if i >= n then
         Format.fprintf ppf "%s" (Buffer.contents buf)
       else
