@@ -13,7 +13,7 @@ module BigarrayO = struct
     else
       for i = 0 to n - 1 do f i done
 
-  (* Destructive substitution of module isn't working out...
+  (* Destructive substitution of modules isn't working out...
      Probably hard to pull apart the dependency? for all the methods
      that use Array1 explicitly.*)
 
