@@ -781,8 +781,8 @@ let pp_oimat ppf mat = pp_omat ppf pp_int32_el mat
 
 module ThreeD = struct
 
-  (* Can we take as guarantee that the '\n' are equally spaced out?*)
-  let newlines s =
+  (* Can we take as guarantee that the '\n' are equally spaced out? *)
+  let make_row_printers s =
     let n = String.length s in
     try
       let w = String.index s '\n' in
@@ -806,24 +806,21 @@ module ThreeD = struct
     with Not_found ->
       n, 1, (fun buf _ -> Buffer.add_string buf s)
 
-
-  type 'a em = E of string | M of 'a
-
   let write_list buf height lst =
     let el_row = height / 2 in
-    let pad_space n =                       (* TODO: is this slow? *)
+    let pad_space n =  (* TODO: is this slow for padding 3-4 ' '? *)
       for i = 1 to n do Buffer.add_char buf ' ' done
     in
     let rec loop r =
-(*      let () = Printf.printf "write_list loop %d\n%!" r in*)
       if r >= height then
         ()
       else begin
-        List.iter (function
-          | E s when r = el_row -> Buffer.add_string buf s; pad_space 1
-          | E s                 -> pad_space (String.length s + 1)
-          | M (_,_,print_row)   -> print_row buf r; pad_space 1)
-          lst;
+        List.iter (fun (print_row, sep, sl) ->
+            print_row buf r;
+            if r = el_row then
+              Buffer.add_string buf sep
+            else
+              pad_space sl) lst;
         Buffer.add_char buf '\n';
         loop (r + 1)
         end
@@ -850,46 +847,35 @@ module ThreeD = struct
     let a_n = Array.length all in
     let disp_l, c = Context.get_disp a_n three_d_context in
     let sli =
-      let insert_separator =
-        match matrix_separator with
-        | None -> Array.map (fun a -> M a)
-        | Some s ->
-          fun arr ->
-            let n = Array.length arr in
-            Array.init (n * 2 - 1) (fun i ->
-                if (i + 1) mod 2 = 0 then E s else M (arr.(i / 2)))
-      in
+      let ms = match matrix_separator with | None -> "" | Some s -> s in
+      let sl = String.length ms in
+      let with_ms = Array.map (fun i -> (i, ms, sl)) in
       if disp_l < a_n then
-        [ insert_separator (Array.sub all 0 c)
-        ; [| E ellipsis |]
-        ; insert_separator (Array.sub all (a_n - c) c)
+        [ with_ms (Array.sub all 0 (c - 1))
+        ; [| (all.(c-1), ellipsis, String.length ellipsis) |]
+        ; with_ms (Array.sub all (a_n - c) c)
         ] |> Array.concat
       else
-      insert_separator all
+        with_ms all
     in
     let n = Array.length sli in
 (*    let () = Printf.printf "--- sli length %d ----\n%!" n in*)
-    let sep_len = 1 in
     let fill_width i =
-      let rec loop new_row i w acc =
+      let rec loop new_row i w hs printers =
 (*        let () = Printf.printf "fill_width loop %d out of %n\n%!" i n in*)
         if w > width || i >= n then
-          i, List.rev acc
+          i, hs, List.rev printers
         else
-          match sli.(i) with
-          | E s as ee ->
-            let s_len = String.length s in
-            loop new_row (i + 1) (w + s_len) (ee :: acc)
-          | M j ->
-            let buf_j =
-              if new_row
-              then pp_mat_to_buffer ~new_row (cs j ar3)
-              else pp_mat_to_buffer ~new_row (cs j ar3)
-            in
-            let wb, h, p = newlines (Buffer.contents buf_j) in
-            loop false (i + 1) (w + wb + sep_len) (M (wb, h, p) :: acc)
+          let (j,sep,sl) = sli.(i) in
+          let buf_j =
+            if new_row
+            then pp_mat_to_buffer ~new_row (cs j ar3)
+            else pp_mat_to_buffer ~new_row (cs j ar3)
+          in
+          let wb, h, p = make_row_printers (Buffer.contents buf_j) in
+          loop false (i + 1) (w + wb + sl) (h::hs) ((p, sep, sl) :: printers)
       in
-      loop true i 0 []
+      loop true i 0 [] []
     in
     let buf = Buffer.create 32 in
     let rec loop i =
@@ -897,21 +883,14 @@ module ThreeD = struct
       if i >= n then
         Format.fprintf ppf "%s" (Buffer.contents buf)
       else
-        let n_i, lst = fill_width i in
-        let height_opt =
-          List.fold_left (fun h_opt fw ->
-            match fw with
-            | E _ -> h_opt
-            | M (_, h, _) ->
-              match h_opt with
-              | None -> Some h
-              | Some hh -> if hh = h then h_opt else invalid_arg "different heights")
-            None  lst
-        in
-        match height_opt with
-        | None -> invalid_arg "bug"
-        | Some height -> write_list buf height lst;
-        (*Buffer.add_char buf '\n'; *)
+        let n_i, hs, printers = fill_width i in
+        match hs with
+        | [] -> invalid_arg "bug"
+        | h :: t ->
+          if List.for_all ((=) h) t then
+            write_list buf h printers
+          else
+            invalid_arg "different heights";
         loop n_i
     in
     loop 0
@@ -974,7 +953,7 @@ module Toplevel = struct
       pp (Format.formatter_of_buffer b) m new_row;
       b)
 
-  let gen_pp_3d ppm = ThreeD.gen_pp_3d ~matrix_separator:";" ppm
+  let gen_pp_3d ppm = ThreeD.gen_pp_3d ~matrix_separator:"; " ppm
 
   let pp_far3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_float_el)) ppf ar3
   let pp_car3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_cmat)) ppf ar3
