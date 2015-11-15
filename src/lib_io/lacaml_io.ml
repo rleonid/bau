@@ -807,17 +807,22 @@ module ThreeD = struct
       n, 1, (fun buf _ -> Buffer.add_string buf s)
 
 
-  type 'a em = E | M of 'a
+  type 'a em = E of string | M of 'a
 
-  let write_list buf ellipsis height lst =
+  let write_list buf height lst =
     let el_row = height / 2 in
+    let pad_space n =                       (* TODO: is this slow? *)
+      for i = 1 to n do Buffer.add_char buf ' ' done
+    in
     let rec loop r =
+(*      let () = Printf.printf "write_list loop %d\n%!" r in*)
       if r >= height then
         ()
       else begin
         List.iter (function
-          | E           -> if r = el_row then Buffer.add_string buf ellipsis
-          | M (_,_,pri) -> pri buf r; Buffer.add_char buf ' ')
+          | E s when r = el_row -> Buffer.add_string buf s; pad_space 1
+          | E s                 -> pad_space (String.length s + 1)
+          | M (_,_,print_row)   -> print_row buf r; pad_space 1)
           lst;
         Buffer.add_char buf '\n';
         loop (r + 1)
@@ -837,40 +842,53 @@ module ThreeD = struct
 
   let gen_pp_3d
     ?(ellipsis = !Context.ellipsis_default)
+    ?matrix_separator
     ?(three_d_context = !Context.three_d_default)
       pp_mat_to_buffer ppf width ar3 =
     let all = slices_indices ar3 in
     let a_n = Array.length all in
     let disp_l, c = Context.get_disp a_n three_d_context in
     let sli =
+      let insert_separator =
+        match matrix_separator with
+        | None -> Array.map (fun a -> M a)
+        | Some s ->
+          fun arr ->
+            let n = Array.length arr in
+            Array.init (n * 2 - 1) (fun i ->
+                if (i + 1) mod 2 = 0 then E s else M (arr.(i / 2)))
+      in
       if disp_l < a_n then
-        [ Array.map (fun i -> M i) (Array.sub all 0 c)
-        ; [| E |]
-        ; Array.map (fun i -> M i) (Array.sub all (a_n - c) c)
+        [ insert_separator (Array.sub all 0 c)
+        ; [| E ellipsis |]
+        ; insert_separator (Array.sub all (a_n - c) c)
         ] |> Array.concat
       else
-        Array.map (fun i -> M i) all
+      insert_separator all
     in
     let n = Array.length sli in
-    let ellipsis_len = String.length ellipsis in
+(*    let () = Printf.printf "--- sli length %d ----\n%!" n in*)
     let sep_len = 1 in
     let fill_width i =
       let rec loop i w acc =
+(*        let () = Printf.printf "fill_width loop %d out of %n\n%!" i n in*)
         if w > width || i >= n then
           i, List.rev acc
         else
           match sli.(i) with
-          | E -> (* Just the separation *)
-            loop (i + 1) (w + ellipsis_len) (E :: acc)
-          | M i ->
-            let buf_i = pp_mat_to_buffer (cs i ar3) in
-            let wb, h, p = newlines (Buffer.contents buf_i) in
+          | E s as ee ->
+            let s_len = String.length s in
+            loop (i + 1) (w + s_len) (ee :: acc)
+          | M j ->
+            let buf_j = pp_mat_to_buffer (cs j ar3) in
+            let wb, h, p = newlines (Buffer.contents buf_j) in
             loop (i + 1) (w + wb + sep_len) (M (wb, h, p) :: acc)
       in
       loop i 0 []
     in
     let buf = Buffer.create 32 in
     let rec loop i =
+(*      let () = Printf.printf "loop %d\n%!" i in *)
       if i >= n then
         Format.fprintf ppf "%s" (Buffer.contents buf)
       else
@@ -878,7 +896,7 @@ module ThreeD = struct
         let height_opt =
           List.fold_left (fun h_opt fw ->
             match fw with
-            | E -> h_opt
+            | E _ -> h_opt
             | M (_, h, _) ->
               match h_opt with
               | None -> Some h
@@ -887,8 +905,8 @@ module ThreeD = struct
         in
         match height_opt with
         | None -> invalid_arg "bug"
-        | Some height -> write_list buf ellipsis height lst;
-        (*8Buffer.add_char buf '\n'; *)
+        | Some height -> write_list buf height lst;
+        (*Buffer.add_char buf '\n'; *)
         loop n_i
     in
     loop 0
@@ -948,13 +966,15 @@ module Toplevel = struct
       pp (Format.formatter_of_buffer b) m;
       b)
 
-  let pp_far3 ppf ar3 = ThreeD.gen_pp_3d (wrap pp_fmat) ppf Context.width ar3
-  let pp_car3 ppf ar3 = ThreeD.gen_pp_3d (wrap pp_cmat) ppf Context.width ar3
-  let pp_iar3 ppf ar3 = ThreeD.gen_pp_3d (wrap pp_imat) ppf Context.width ar3
-  let pp_inaar3 ppf ar3 = ThreeD.gen_pp_3d (wrap pp_inamat) ppf Context.width ar3
-  let pp_i32ar3 ppf ar3 = ThreeD.gen_pp_3d (wrap pp_i32mat) ppf Context.width ar3
-  let pp_i64ar3 ppf ar3 = ThreeD.gen_pp_3d (wrap pp_i64mat) ppf Context.width ar3
-  let pp_charar3 ppf ar3 = ThreeD.gen_pp_3d (wrap pp_charmat) ppf Context.width ar3
+  let gen_pp_3d = ThreeD.gen_pp_3d ~matrix_separator:";"
+
+  let pp_far3 ppf ar3 = gen_pp_3d (wrap pp_fmat) ppf Context.width ar3
+  let pp_car3 ppf ar3 = gen_pp_3d (wrap pp_cmat) ppf Context.width ar3
+  let pp_iar3 ppf ar3 = gen_pp_3d (wrap pp_imat) ppf Context.width ar3
+  let pp_inaar3 ppf ar3 = gen_pp_3d (wrap pp_inamat) ppf Context.width ar3
+  let pp_i32ar3 ppf ar3 = gen_pp_3d (wrap pp_i32mat) ppf Context.width ar3
+  let pp_i64ar3 ppf ar3 = gen_pp_3d (wrap pp_i64mat) ppf Context.width ar3
+  let pp_charar3 ppf ar3 = gen_pp_3d (wrap pp_charmat) ppf Context.width ar3
 
 end
 
