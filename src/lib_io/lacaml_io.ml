@@ -98,7 +98,7 @@ module Context = struct
     | None -> real, real
     | Some virt -> min real (2 * virt), virt
 
-  let width = 80
+  let width = ref 80
 end
 
 let isf (type ll)(l : ll layout) =
@@ -841,10 +841,11 @@ module ThreeD = struct
     | C_layout       -> Array.init (Array3.dim1 ar3) (fun i -> i)
 
   let gen_pp_3d
-    ?(ellipsis = !Context.ellipsis_default)
     ?matrix_separator
+    ?(ellipsis = !Context.ellipsis_default)
     ?(three_d_context = !Context.three_d_default)
-    pp_mat_to_buffer ppf width ar3 =
+    ?(width = !Context.width)
+    pp_mat_to_buffer ppf ar3 =
     let all = slices_indices ar3 in
     let a_n = Array.length all in
     let disp_l, c = Context.get_disp a_n three_d_context in
@@ -973,15 +974,15 @@ module Toplevel = struct
       pp (Format.formatter_of_buffer b) m new_row;
       b)
 
-  let gen_pp_3d = ThreeD.gen_pp_3d ~matrix_separator:";"
+  let gen_pp_3d ppm = ThreeD.gen_pp_3d ~matrix_separator:";" ppm
 
-  let pp_far3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_float_el)) ppf Context.width ar3
-  let pp_car3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_cmat)) ppf Context.width ar3
-  let pp_iar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_imat)) ppf Context.width ar3
-  let pp_inaar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_inamat)) ppf Context.width ar3
-  let pp_i32ar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_i32mat)) ppf Context.width ar3
-  let pp_i64ar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_i64mat)) ppf Context.width ar3
-  let pp_charar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_charmat)) ppf Context.width ar3
+  let pp_far3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_float_el)) ppf ar3
+  let pp_car3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_cmat)) ppf ar3
+  let pp_iar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_imat)) ppf ar3
+  let pp_inaar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_inamat)) ppf ar3
+  let pp_i32ar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_i32mat)) ppf ar3
+  let pp_i64ar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_i64mat)) ppf ar3
+  let pp_charar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_charmat)) ppf ar3
 
 end
 
