@@ -97,6 +97,8 @@ module Context = struct
   let get_disp real = function
     | None -> real, real
     | Some virt -> min real (2 * virt), virt
+
+  let width = 80
 end
 
 let isf (type ll)(l : ll layout) =
@@ -777,54 +779,119 @@ let pp_ocmat ppf mat = pp_omat ppf pp_complex_el mat
 let pp_oimat ppf mat = pp_omat ppf pp_int32_el mat
 
 
-module ThreeDimensionals = struct
+module ThreeD = struct
 
+  (* Can we take as guarantee that the '\n' are equally spaced out?*)
   let newlines s =
     let n = String.length s in
-    let rec loop i d acc =
-      if i = n then
-        d, List.rev (n :: acc)
-      else
-       match String.index_from s i '\n' with
-       | p -> loop (p + 1) (max d (p - i)) (p :: acc)
-       | exception Not_found ->
-         (max d (n - i)), List.rev (n :: acc)
-    in
-    loop 0 0 []
+    try
+      let w = String.index s '\n' in
+      let rec loop i h =
+        if i = n then h else (* Ends on a '\n' *)
+        match String.index_from s i '\n' with
+        | p ->
+            if p - i <> w then
+              invalid_arg "misaligned new line"
+            else
+              loop (p + 1) (h + 1)
+        | exception Not_found ->
+            h + 1
+      in
+      let h = loop (w + 1) 1 in
+      w, h, (fun buf r ->
+              let a = if r = 0 then 0 else 1 in
+              let o = (w + a) * r in
+              let l = min (n - o) w in
+              Buffer.add_substring buf s o l)
+    with Not_found ->
+      n, 1, (fun buf _ -> Buffer.add_string buf s)
 
-  let join ?(sep=`Middle " --- ") bl (wl, ll) br (wr, rr) =
-    let ll_len = List.length ll in
-    let rr_len = List.length rr in
-    let height = max ll_len rr_len in
-    let sep_w, sep =
-      match sep with
-      | `Always s -> String.length s, (fun _ -> s)
-      | `Middle s ->
-        let ls = String.length s in
-        let ws = String.make ls ' ' in
-        let rc = height / 2 in
-        ls, (fun i -> if i = rc then s else ws)
-    in
-    let siz = (wl + wr - 1 + sep_w) * height in
-    let buf = Buffer.create siz in
-    let pad_space amt = for i = 1 to amt do Buffer.add_char buf ' ' done in
-    let rec loop i pl pr ll rr =
-      match (ll, rr) with
-      | [],    []     -> buf
-      | [],    x      -> invalid_arg "right"
-      | x ,    []     -> invalid_arg "left"
-      | l::tl, r::tr  ->
-        let amtl = l - pl in
-        Buffer.add_substring buf bl pl amtl;
-        pad_space (wl - amtl);
-        Buffer.add_string buf (sep i);
-        let amtr = r - pr in
-        Buffer.add_substring buf br pr amtr;
-        pad_space (wr - amtr);
+
+  type 'a em = E | M of 'a
+
+  let write_list buf ellipsis height lst =
+    let el_row = height / 2 in
+    let rec loop r =
+      if r >= height then
+        ()
+      else begin
+        List.iter (function
+          | E           -> if r = el_row then Buffer.add_string buf ellipsis
+          | M (_,_,pri) -> pri buf r; Buffer.add_char buf ' ')
+          lst;
         Buffer.add_char buf '\n';
-        loop (i + 1) (l + 1) (r + 1) tl tr
+        loop (r + 1)
+        end
     in
-    loop 0 0 0 ll rr
+    loop 0
+
+  let cs i (type l) (ar3 : ('a, 'b, l) Array3.t) : ('a, 'b, l) Array2.t =
+    match Array3.layout ar3 with
+    | Fortran_layout -> Array3.slice_right_2 ar3 i
+    | C_layout       -> Array3.slice_left_2 ar3 i
+
+  let slices_indices (type l) (ar3 : ('a, 'b, l) Array3.t) =
+    match Array3.layout ar3 with
+    | Fortran_layout -> Array.init (Array3.dim3 ar3) (fun i -> i + 1)
+    | C_layout       -> Array.init (Array3.dim1 ar3) (fun i -> i)
+
+  let gen_pp_3d
+    ?(ellipsis = !Context.ellipsis_default)
+    ?(three_d_context = !Context.three_d_default)
+      pp_mat_to_buffer ppf width ar3 =
+    let all = slices_indices ar3 in
+    let a_n = Array.length all in
+    let disp_l, c = Context.get_disp a_n three_d_context in
+    let sli =
+      if disp_l < a_n then
+        [ Array.map (fun i -> M i) (Array.sub all 0 c)
+        ; [| E |]
+        ; Array.map (fun i -> M i) (Array.sub all (a_n - c) c)
+        ] |> Array.concat
+      else
+        Array.map (fun i -> M i) all
+    in
+    let n = Array.length sli in
+    let ellipsis_len = String.length ellipsis in
+    let sep_len = 1 in
+    let fill_width i =
+      let rec loop i w acc =
+        if w > width || i >= n then
+          i, List.rev acc
+        else
+          match sli.(i) with
+          | E -> (* Just the separation *)
+            loop (i + 1) (w + ellipsis_len) (E :: acc)
+          | M i ->
+            let buf_i = pp_mat_to_buffer (cs i ar3) in
+            let wb, h, p = newlines (Buffer.contents buf_i) in
+            loop (i + 1) (w + wb + sep_len) (M (wb, h, p) :: acc)
+      in
+      loop i 0 []
+    in
+    let buf = Buffer.create 32 in
+    let rec loop i =
+      if i >= n then
+        Format.fprintf ppf "%s" (Buffer.contents buf)
+      else
+        let n_i, lst = fill_width i in
+        let height_opt =
+          List.fold_left (fun h_opt fw ->
+            match fw with
+            | E -> h_opt
+            | M (_, h, _) ->
+              match h_opt with
+              | None -> Some h
+              | Some hh -> if hh = h then h_opt else invalid_arg "different heights")
+            None  lst
+        in
+        match height_opt with
+        | None -> invalid_arg "bug"
+        | Some height -> write_list buf ellipsis height lst;
+        (*8Buffer.add_char buf '\n'; *)
+        loop n_i
+    in
+    loop 0
 
 end
 
@@ -875,24 +942,19 @@ module Toplevel = struct
   let pp_charmat ppf mat = gen_pp_mat pp_char_el ppf mat
 
   (* Array3d *)
-  (*  let gen_pp_3d pp_el ppf arr3d =
-    let pp_mat = gen_pp_mat pp_el in
-    let l = Array3.dim1 arr3d in
-    let disp_l, c = Context.get_disp l !Context.three_d_default in
-    let slice =
-      if isf (Array3.layout arr3d) then
-        (fun i -> Array3.slice_right_2 arr3d (i + 1))
-      else
-        (fun i -> Array3.slice_left_2 arr3d i)
-    in
-    let bs = Array.init l (fun i ->
-        let b = Buffer.create 32 in
-        let f = Format.format_of_buffer b in
-        pp_mat f (slice i);
-        ())
-    in
-    bs
-    *)
+  let wrap pp =
+    (fun m ->
+      let b = Buffer.create 32 in
+      pp (Format.formatter_of_buffer b) m;
+      b)
+
+  let pp_far3 ppf ar3 = ThreeD.gen_pp_3d (wrap pp_fmat) ppf Context.width ar3
+  let pp_car3 ppf ar3 = ThreeD.gen_pp_3d (wrap pp_cmat) ppf Context.width ar3
+  let pp_iar3 ppf ar3 = ThreeD.gen_pp_3d (wrap pp_imat) ppf Context.width ar3
+  let pp_inaar3 ppf ar3 = ThreeD.gen_pp_3d (wrap pp_inamat) ppf Context.width ar3
+  let pp_i32ar3 ppf ar3 = ThreeD.gen_pp_3d (wrap pp_i32mat) ppf Context.width ar3
+  let pp_i64ar3 ppf ar3 = ThreeD.gen_pp_3d (wrap pp_i64mat) ppf Context.width ar3
+  let pp_charar3 ppf ar3 = ThreeD.gen_pp_3d (wrap pp_charmat) ppf Context.width ar3
 
 end
 

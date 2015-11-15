@@ -21,3 +21,12 @@ open Bau
 #install_printer Lacaml_io.Toplevel.pp_charmat;;
 #use "src/scripts/matrices.ml"
 #use "src/scripts/thd.ml"
+
+(* Array3 *)
+#install_printer Lacaml_io.Toplevel.pp_far3;;
+#install_printer Lacaml_io.Toplevel.pp_car3;;
+#install_printer Lacaml_io.Toplevel.pp_iar3;;
+#install_printer Lacaml_io.Toplevel.pp_inaar3;;
+#install_printer Lacaml_io.Toplevel.pp_i32ar3;;
+#install_printer Lacaml_io.Toplevel.pp_i64ar3;;
+#install_printer Lacaml_io.Toplevel.pp_charar3;;
