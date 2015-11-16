@@ -1,6 +1,7 @@
 
 
-open Bau.BigarrayO
+open Bau
+open Bigarrayo
 
 let test_size = 10
 let max_matrix_size = 10
@@ -18,10 +19,10 @@ let complex_mat n m =
 let generate_test oc =
   let fmt = Format.formatter_of_out_channel oc in
   for i = 1 to test_size do
-    Lacaml_io.Toplevel.pp_fmat fmt (double_mat (ms ()) (ms ()));
+    Pp.Toplevel.pp_fmat fmt (double_mat (ms ()) (ms ()));
   done;
   for i = 1 to test_size do
-    Lacaml_io.Toplevel.pp_cmat fmt (complex_mat (ms ()) (ms ()));
+    Pp.Toplevel.pp_cmat fmt (complex_mat (ms ()) (ms ()));
   done
 
 let () =

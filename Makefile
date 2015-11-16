@@ -4,7 +4,7 @@ bau:
 
 #regression test
 reg:
-	ocamlbuild -use-ocamlfind -package bigarray -I src/lib -I src/lib_io -I src/test regt.native
+	ocamlbuild -use-ocamlfind -package bigarray -I src -I src/test bau.cmo bau.cma bau.cmxa bau.cmxs regt.native
 
 clean:
 	ocamlbuild -clean

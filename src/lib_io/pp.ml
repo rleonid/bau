@@ -1,4 +1,17 @@
-(* File: io.ml
+(* File: Pp.ml
+   This file was originally lacaml_io.ml in the Lacaml library.
+   Small modifications have been made to the original matrix
+   pretty printing algorithm:
+    - Support for C_layout; indexing start's at 0 for rows and columns
+      as opposed to 1 (ala Fortran_layout).
+    - Support for non Float64 kinds.
+    - These additions should not effect the original printing logic.
+
+   New capabilities have been to pretty print Array3's. The printer
+   prints each sub matrix, via a slice_(left|right)_2
+   (for (C|Fortran)_layout respectively) and uses
+   {!Context.three_d_default} to show how many of these matrices
+   to display.
 
    Copyright (C) 2005-
 
