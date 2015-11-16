@@ -1,5 +1,7 @@
 (* File: Pp.ml
    This file was originally lacaml_io.ml in the Lacaml library.
+   The original copyright notice is retained below.
+
    Small modifications have been made to the original matrix
    pretty printing algorithm:
     - Support for C_layout; indexing start's at 0 for rows and columns
@@ -12,6 +14,7 @@
    (for (C|Fortran)_layout respectively) and uses
    {!Context.three_d_default} to show how many of these matrices
    to display.
+
 
    Copyright (C) 2005-
 
@@ -936,7 +939,13 @@ module Toplevel = struct
 
   let pp_rfvec ppf vec = gen_pp_rvec pp_float_el ppf vec
   let pp_rcvec ppf vec = gen_pp_rvec pp_complex_el ppf vec
-  let pp_rivec ppf vec = gen_pp_rvec pp_int32_el ppf vec
+  let pp_rivec ppf vec = gen_pp_rvec pp_int_el ppf vec
+  let pp_rinavec ppf vec = gen_pp_rvec pp_intna_el ppf vec
+  let pp_ri32vec ppf vec = gen_pp_rvec pp_int32_el ppf vec
+  let pp_ri64vec ppf vec = gen_pp_rvec pp_int64_el ppf vec
+  let pp_rcharvec ppf vec = gen_pp_rvec pp_char_el ppf vec
+
+
 
   (* Matrices *)
 
