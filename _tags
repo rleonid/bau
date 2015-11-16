@@ -1,2 +1,3 @@
 true: annot, bin_annot, principal
-<src/*/*.cmx> and not <src/*/bau.cm*> : for-pack(Bau)
+# <src/*/*.cmx> and not <src/bau.cm*> : for-pack(Bau)
+<src/*/*.cmx> and not <src/bautop.cm*> : for-pack(Bautop)
