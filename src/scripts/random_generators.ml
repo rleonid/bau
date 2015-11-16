@@ -3,7 +3,7 @@ open Bigarray
 
 let mat_map f m = Array.map (Array.map f) m
 
-let gen_matrix_f ?(u=1e3) n m =
+let g_floats ?(u=1e3) n m =
   let native =
     Array.init n (fun _ ->
         Array.init m (fun _ ->
@@ -15,7 +15,7 @@ let gen_matrix_f ?(u=1e3) n m =
   let fl64c = Array2.of_array Float64 C_layout native in
   native, fl32for, fl32c, fl64for, fl64c
 
-let gen_matrix_is ?(u=100) n m =
+let g_small_ints ?(u=100) n m =
   let native =
     Array.init n (fun _ ->
         Array.init m (fun _ ->
@@ -27,7 +27,7 @@ let gen_matrix_is ?(u=100) n m =
   let i16sc = Array2.of_array Int16_signed C_layout native in
   native, i8sf, i8sc, i16sf, i16sc
 
-let gen_matrix_i ?(u=100) n m =
+let g_ints ?(u=100) n m =
   let native =
     Array.init n (fun _ ->
         Array.init m (fun _ ->
@@ -39,7 +39,7 @@ let gen_matrix_i ?(u=100) n m =
   let nai = Array2.of_array Nativeint Fortran_layout (mat_map Nativeint.of_int native) in
   native, i, i32, i64, nai
 
-let gen_matrix_char n m =
+let g_chars n m =
   let native =
     Array.init n (fun _ ->
         Array.init m (fun _ ->
@@ -49,7 +49,7 @@ let gen_matrix_char n m =
   let cc = Array2.of_array Char C_layout native in
   native, cf, cc
 
-let gen_matrix_comp ?(u=1e3) n m =
+let g_complexes ?(u=1e3) n m =
   let open Complex in
   let native =
     Array.init n (fun _ ->
@@ -63,3 +63,14 @@ let gen_matrix_comp ?(u=1e3) n m =
   let c64for = Array2.of_array Complex64 Fortran_layout native in
   let c64c = Array2.of_array Complex64 C_layout native in
   native, c32for, c32c, c64for, c64c
+
+let gen_3d_floats ?(u=1e3) n m l =
+  let native =
+    Array.init n (fun _ ->
+      Array.init m (fun _ ->
+        Array.init l (fun _ ->
+          2.0 *. (Random.float u) -. u)))
+  in
+  let fl64for = Array3.of_array Float64 Fortran_layout native in
+  let fl64c   = Array3.of_array Float64 C_layout native in
+  native, fl64for, fl64c
