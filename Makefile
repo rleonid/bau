@@ -5,10 +5,10 @@ INSTALL_EXTS=$(LIB_EXTS) a o cmi cmo cmx
 #	ocamlbuild -use-ocamlfind -pkg bigarray -I src bau.cmo bau.cma bau.cmxa bau.cmxs
 
 bau:
-	ocamlbuild -use-ocamlfind -pkg bigarray -I src $(foreach e,$(LIB_EXTS),bau.$(e))
+	ocamlbuild -use-ocamlfind -pkg bigarray -I src -tag-line '<src/*/*.cmx> and not <src/bau.cm*> : for-pack(Bau)' $(foreach e,$(LIB_EXTS),bau.$(e))
 
 bautop:
-	ocamlbuild -use-ocamlfind -pkg bigarray -pkg compiler-libs -I src $(foreach e,$(LIB_EXTS),bautop.$(e))
+	ocamlbuild -use-ocamlfind -pkg bigarray -pkg compiler-libs -I src -tag-line '<src/*/*.cmx> and not <src/bau_top.cm*> : for-pack(Bautop)' $(foreach e,$(LIB_EXTS),bautop.$(e))
 
 #regression test
 reg:
