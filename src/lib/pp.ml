@@ -966,21 +966,21 @@ module Toplevel = struct
   let pp_charmat ppf mat = gen_pp_mat pp_char_el ppf mat true
 
   (* Array3d *)
-  let wrap pp =
+  let wrap_gen pp_el =
     (fun ~new_row m ->
       let b = Buffer.create 32 in
-      pp (Format.formatter_of_buffer b) m new_row;
+      gen_pp_mat pp_el (Format.formatter_of_buffer b) m new_row;
       b)
 
-  let gen_pp_3d ppm = ThreeD.gen_pp_3d ~matrix_separator:"; " ppm
+  let gen_pp_3d ppm ppf arr = ThreeD.gen_pp_3d ~matrix_separator:"; " ppm ppf arr
 
-  let pp_far3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_float_el)) ppf ar3
-  let pp_car3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_cmat)) ppf ar3
-  let pp_iar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_imat)) ppf ar3
-  let pp_inaar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_inamat)) ppf ar3
-  let pp_i32ar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_i32mat)) ppf ar3
-  let pp_i64ar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_i64mat)) ppf ar3
-  let pp_charar3 ppf ar3 = gen_pp_3d (wrap (gen_pp_mat pp_charmat)) ppf ar3
+  let pp_far3 ppf ar3 = gen_pp_3d (wrap_gen pp_float_el) ppf ar3
+  let pp_car3 ppf ar3 = gen_pp_3d (wrap_gen pp_complex_el) ppf ar3
+  let pp_iar3 ppf ar3 = gen_pp_3d (wrap_gen pp_int_el) ppf ar3
+  let pp_inaar3 ppf ar3 = gen_pp_3d (wrap_gen pp_intna_el) ppf ar3
+  let pp_i32ar3 ppf ar3 = gen_pp_3d (wrap_gen pp_int32_el) ppf ar3
+  let pp_i64ar3 ppf ar3 = gen_pp_3d (wrap_gen pp_int64_el) ppf ar3
+  let pp_charar3 ppf ar3 = gen_pp_3d (wrap_gen pp_char_el) ppf ar3
 
 end
 
