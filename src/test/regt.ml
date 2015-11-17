@@ -1,6 +1,5 @@
 
 
-open Bau
 open Bigarrayo
 
 let test_size = 10

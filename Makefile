@@ -14,7 +14,7 @@ bau_top:
 
 #regression test
 reg:
-	ocamlbuild -use-ocamlfind -pkg bigarray -I src -I src/test $(foreach e,$(LIB_EXTS),bau.$(e)) regt.native
+	ocamlbuild -use-ocamlfind -pkg bigarray -I src/lib -I src/test $(foreach e,$(LIB_EXTS),bau.$(e)) regt.native
 
 clean:
 	ocamlbuild -clean
