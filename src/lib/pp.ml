@@ -137,7 +137,7 @@ let pp_mat_gen
     ?(ellipsis = !Context.ellipsis_default)
     ?(vertical_context = !Context.vertical_default)
     ?(horizontal_context = !Context.horizontal_default)
-    ?label_layout
+    ?label_corner
     pp_el ppf mat =
   let m = Array2.dim1 mat in
   if m > 0 then (
@@ -250,7 +250,12 @@ let pp_mat_gen
           end;
           let head_label, row_labels, foot_label =
             match pp_left with
-            | None -> "", [||], ""
+            | None ->
+              let head0 = omap "" (fun f -> f m) label_corner in
+              let empty_row = String.make (String.length head0) pad_c in
+              let row_labels = Array.make disp_m empty_row in
+              let foot0 =  "" in
+              head0, row_labels, foot0
             | Some pp_left ->
                 let max_len_row_labels_ref = ref 0 in
                 let row_labels = Array.make disp_m "" in
@@ -269,13 +274,10 @@ let pp_mat_gen
                 set_labels ~src_r:array_start_idx ~dst_r:0;
                 if has_ver then
                   set_labels ~src_r:src_row_ofs ~dst_r:vertical_context;
-                let head0 =
-                  match label_layout with
-                  | Some _ -> if isf (Array2.layout mat) then "F" else "C"
-                  | None   -> ""
-                in
+                let head0 = omap "" (fun f -> f m) label_corner in 
                 let foot0 = if pp_foot <> None then get_label (m + 1) else "" in
-                let max_len_row_labels = !max_len_row_labels_ref in
+                let max_len_row_labels = max (String.length head0)
+                    !max_len_row_labels_ref in
                 let padded_row_labels =
                   Array.map (pad_str pad_c max_len_row_labels) row_labels
                 in
@@ -288,11 +290,11 @@ let pp_mat_gen
             gen_fmt_row_body ~pp_nth ?ellipsis src_r
           in
           let fmt_row_label ?ellipsis ~src_r row label =
-            if pp_left <> None then fmt_label ~src_r label;
+            fmt_label ~src_r label;
             fmt_row_body ?ellipsis ~src_r row
           in
           let fmt_row_labels ?ellipsis ~src_r rows labels i =
-            if pp_left <> None then fmt_label ~src_r labels.(i);
+            fmt_label ~src_r labels.(i);
             fmt_row_body ?ellipsis ~src_r rows.(i)
           in
           let head_foot_ellipsis = String.make (String.length ellipsis) pad_c in
@@ -883,8 +885,8 @@ module ThreeD = struct
           let (j,sep,sl) = sli.(i) in
           let buf_j =
             if new_row
-            then pp_mat_to_buffer ~new_row (cs j ar3)
-            else pp_mat_to_buffer ~new_row (cs j ar3)
+            then pp_mat_to_buffer ~new_row (cs j ar3) j
+            else pp_mat_to_buffer ~new_row (cs j ar3) j
           in
           let wb, h, p = make_row_printers (Buffer.contents buf_j) in
           loop false (i + 1) (w + wb + sl) (h::hs) ((p, sep, sl) :: printers)
@@ -944,31 +946,32 @@ module Toplevel = struct
   let pp_ri64vec ppf vec = gen_pp_rvec pp_int64_el ppf vec
   let pp_rcharvec ppf vec = gen_pp_rvec pp_char_el ppf vec
 
-
+  (* Old capability to label the layout via the top_left_corner *)
+  let label_layout mat = if isf (Array2.layout mat) then "F" else "C"
 
   (* Matrices *)
-
-  let gen_pp_mat pp_el ppf mat left_label =
+  let gen_pp_mat pp_el ppf mat label_corner left_label =
     if left_label then
-      pp_mat_gen ~pp_head:pp_labeled_col ~pp_left:pp_labeled_row
+      pp_mat_gen ~pp_head:pp_labeled_col ~pp_left:pp_labeled_row ?label_corner
         pp_el ppf mat
     else
-      pp_mat_gen ~pp_head:pp_labeled_col
+      pp_mat_gen ~pp_head:pp_labeled_col ?label_corner
         pp_el ppf mat
 
-  let pp_fmat ppf mat = gen_pp_mat pp_float_el ppf mat true
-  let pp_cmat ppf mat = gen_pp_mat pp_complex_el ppf mat true
-  let pp_imat ppf mat = gen_pp_mat pp_int_el ppf mat true
-  let pp_inamat ppf mat = gen_pp_mat pp_intna_el ppf mat true
-  let pp_i32mat ppf mat = gen_pp_mat pp_int32_el ppf mat true
-  let pp_i64mat ppf mat = gen_pp_mat pp_int64_el ppf mat true
-  let pp_charmat ppf mat = gen_pp_mat pp_char_el ppf mat true
+  let pp_fmat ppf mat = gen_pp_mat pp_float_el ppf mat None true
+  let pp_cmat ppf mat = gen_pp_mat pp_complex_el ppf mat None true
+  let pp_imat ppf mat = gen_pp_mat pp_int_el ppf mat None true
+  let pp_inamat ppf mat = gen_pp_mat pp_intna_el ppf mat None true
+  let pp_i32mat ppf mat = gen_pp_mat pp_int32_el ppf mat None true
+  let pp_i64mat ppf mat = gen_pp_mat pp_int64_el ppf mat None true
+  let pp_charmat ppf mat = gen_pp_mat pp_char_el ppf mat None true
 
-  (* Array3d *)
+  (* Array3d  *)
   let wrap_gen pp_el =
-    (fun ~new_row m ->
+    (fun ~new_row m si ->
       let b = Buffer.create 32 in
-      gen_pp_mat pp_el (Format.formatter_of_buffer b) m new_row;
+      let label_corner = Some (fun _ -> string_of_int si) in
+      gen_pp_mat pp_el (Format.formatter_of_buffer b) m label_corner new_row;
       b)
 
   let gen_pp_3d ppm ppf arr = ThreeD.gen_pp_3d ~matrix_separator:"; " ppm ppf arr
@@ -982,4 +985,3 @@ module Toplevel = struct
   let pp_charar3 ppf ar3 = gen_pp_3d (wrap_gen pp_char_el) ppf ar3
 
 end
-
