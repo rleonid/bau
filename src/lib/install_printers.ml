@@ -30,31 +30,31 @@
 let printers =
   [
     (* Vectors *)
-    "Bautop.Pp.Toplevel.pp_rfvec";
-    "Bautop.Pp.Toplevel.pp_rcvec";
-    "Bautop.Pp.Toplevel.pp_rivec";
-    "Bautop.Pp.Toplevel.pp_rinavec";
-    "Bautop.Pp.Toplevel.pp_ri32vec";
-    "Bautop.Pp.Toplevel.pp_ri64vec";
-    "Bautop.Pp.Toplevel.pp_rcharvec";
+    "Pp.Toplevel.pp_rfvec";
+    "Pp.Toplevel.pp_rcvec";
+    "Pp.Toplevel.pp_rivec";
+    "Pp.Toplevel.pp_rinavec";
+    "Pp.Toplevel.pp_ri32vec";
+    "Pp.Toplevel.pp_ri64vec";
+    "Pp.Toplevel.pp_rcharvec";
 
     (* Matrices *)
-    "Bautop.Pp.Toplevel.pp_fmat";
-    "Bautop.Pp.Toplevel.pp_cmat";
-    "Bautop.Pp.Toplevel.pp_imat";
-    "Bautop.Pp.Toplevel.pp_inamat";
-    "Bautop.Pp.Toplevel.pp_i32mat";
-    "Bautop.Pp.Toplevel.pp_i64mat";
-    "Bautop.Pp.Toplevel.pp_charmat";
+    "Pp.Toplevel.pp_fmat";
+    "Pp.Toplevel.pp_cmat";
+    "Pp.Toplevel.pp_imat";
+    "Pp.Toplevel.pp_inamat";
+    "Pp.Toplevel.pp_i32mat";
+    "Pp.Toplevel.pp_i64mat";
+    "Pp.Toplevel.pp_charmat";
 
     (* Array3 *)
-    "Bautop.Pp.Toplevel.pp_far3";
-    "Bautop.Pp.Toplevel.pp_car3";
-    "Bautop.Pp.Toplevel.pp_iar3";
-    "Bautop.Pp.Toplevel.pp_inaar3";
-    "Bautop.Pp.Toplevel.pp_i32ar3";
-    "Bautop.Pp.Toplevel.pp_i64ar3";
-    "Bautop.Pp.Toplevel.pp_charar3";
+    "Pp.Toplevel.pp_far3";
+    "Pp.Toplevel.pp_car3";
+    "Pp.Toplevel.pp_iar3";
+    "Pp.Toplevel.pp_inaar3";
+    "Pp.Toplevel.pp_i32ar3";
+    "Pp.Toplevel.pp_i64ar3";
+    "Pp.Toplevel.pp_charar3";
   ]
 
 let eval_string
@@ -66,10 +66,9 @@ let eval_string
 let rec install_printers = function
   | [] -> true
   | printer :: printers ->
-      let () = Printf.eprintf "installing %s" printer in
       let cmd = Printf.sprintf "#install_printer %s;;" printer in
       eval_string cmd && install_printers printers
 
 let () =
   if not (install_printers printers) then
-    Format.eprintf "Problem installing LACAML-printers@."
+    Format.eprintf "Problem installing Bau-printers@."

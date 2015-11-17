@@ -1,4 +1,3 @@
-open Bau
 (* Vectors *)
 #install_printer Pp.Toplevel.pp_fvec;;
 #install_printer Pp.Toplevel.pp_cvec;;

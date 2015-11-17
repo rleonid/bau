@@ -6,7 +6,6 @@ archive(byte)="bau.cma"
 archive(native)="bau.cmxa"
 package "top" (
  description = "Install BaU pretty printers."
- requires = "bau"
  archive(byte) = "bau_top.cma"
  archive(byte, plugin) = "bau_top.cma"
  archive(native) = "bau_top.cmxa"
