@@ -137,7 +137,7 @@ let pp_mat_gen
     ?(ellipsis = !Context.ellipsis_default)
     ?(vertical_context = !Context.vertical_default)
     ?(horizontal_context = !Context.horizontal_default)
-    ?(label_layout=false)
+    ?label_layout
     pp_el ppf mat =
   let m = Array2.dim1 mat in
   if m > 0 then (
@@ -270,9 +270,9 @@ let pp_mat_gen
                 if has_ver then
                   set_labels ~src_r:src_row_ofs ~dst_r:vertical_context;
                 let head0 =
-                  if label_layout then begin
-                    if isf (Array2.layout mat) then "F" else "C"
-                  end else ""
+                  match label_layout with
+                  | Some _ -> if isf (Array2.layout mat) then "F" else "C"
+                  | None   -> ""
                 in
                 let foot0 = if pp_foot <> None then get_label (m + 1) else "" in
                 let max_len_row_labels = !max_len_row_labels_ref in
@@ -924,7 +924,6 @@ module Toplevel = struct
 
   let gen_pp_vec pp_el ppf vec =
     pp_mat_gen ~pp_left:pp_labeled_row pp_el ppf (from_col_vec vec)
-      ~label_layout:false
 
   let pp_fvec ppf vec = gen_pp_vec pp_float_el ppf vec
   let pp_cvec ppf vec = gen_pp_vec pp_complex_el ppf vec
@@ -952,10 +951,10 @@ module Toplevel = struct
   let gen_pp_mat pp_el ppf mat left_label =
     if left_label then
       pp_mat_gen ~pp_head:pp_labeled_col ~pp_left:pp_labeled_row
-        ~label_layout:false pp_el ppf mat
+        pp_el ppf mat
     else
       pp_mat_gen ~pp_head:pp_labeled_col
-        ~label_layout:false pp_el ppf mat
+        pp_el ppf mat
 
   let pp_fmat ppf mat = gen_pp_mat pp_float_el ppf mat true
   let pp_cmat ppf mat = gen_pp_mat pp_complex_el ppf mat true
