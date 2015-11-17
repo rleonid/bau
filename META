@@ -4,3 +4,14 @@ version="0.0.0"
 directory="."
 archive(byte)="bau.cma"
 archive(native)="bau.cmxa"
+package "top" (
+ description = "Install BaU pretty printers."
+ archive(byte) = "bau_top.cma"
+ archive(byte, plugin) = "bau_top.cma"
+ archive(native) = "bau_top.cmxa"
+ archive(native, plugin) = "bau_top.cmxs"
+ exists_if = "bau_top.cma"
+)
+
+archive(toploop,byte) += "bau_top.cma"
+archive(toploop,native) += "bau_top.cmxa"
