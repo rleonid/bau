@@ -919,6 +919,24 @@ module Toplevel = struct
   (* Controlling context width*)
   let lsc n = Context.set_dim_defaults (Some (Context.create n))
 
+  (* Determine the element printer based upon array kind. *)
+  let formatter_el : type a b. (a, b) kind ->
+    (Format.formatter -> a -> unit) = function
+    | Float32 -> pp_float_el
+    | Float64 -> pp_float_el
+    | Complex32 -> pp_complex_el
+    | Complex64 -> pp_complex_el
+    | Int8_signed -> pp_int_el
+    | Int8_unsigned -> pp_int_el
+    | Int16_signed -> pp_int_el
+    | Int16_unsigned -> pp_int_el
+    | Int -> pp_int_el
+    | Nativeint -> pp_intna_el
+    | Int32 -> pp_int32_el
+    | Int64 -> pp_int64_el
+    | Char -> pp_char_el
+
+
   (* Vectors *)
 
   let pp_labeled_col ppf c = if c >= 0 then fprintf ppf "C%d" c
@@ -966,6 +984,8 @@ module Toplevel = struct
   let pp_i64mat ppf mat = gen_pp_mat pp_int64_el ppf mat None true
   let pp_charmat ppf mat = gen_pp_mat pp_char_el ppf mat None true
 
+  (*let pp_mat ppf mat = gen_pp_mat (formatter_el (Array2.kind mat)) ppf mat None true *)
+
   (* Array3d  *)
   let wrap_gen pp_el =
     (fun ~new_row m si ->
@@ -983,5 +1003,7 @@ module Toplevel = struct
   let pp_i32ar3 ppf ar3 = gen_pp_3d (wrap_gen pp_int32_el) ppf ar3
   let pp_i64ar3 ppf ar3 = gen_pp_3d (wrap_gen pp_int64_el) ppf ar3
   let pp_charar3 ppf ar3 = gen_pp_3d (wrap_gen pp_char_el) ppf ar3
+
+  (* Genarray *)
 
 end
