@@ -37,6 +37,9 @@ let printers =
 
     (* Array3 *)
     "Pp.Toplevel.gen_pp_ar3";
+
+    (* Genarray *)
+    "Pp.Toplevel.gen_pp_gen";
   ]
 
 let eval_string

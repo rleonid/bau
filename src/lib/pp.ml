@@ -977,5 +977,13 @@ module Toplevel = struct
     ThreeD.gen_pp_ar3 ~matrix_separator:"; " ppm ppf ar3
 
   (* Genarray *)
+  let gen_pp_gen ppf gen =
+    match Genarray.num_dims gen with
+    | 1 -> gen_pp_vec ppf (array1_of_genarray gen)
+    | 2 -> gen_pp_mat ppf (array2_of_genarray gen)
+    | 3 -> gen_pp_ar3 ppf (array3_of_genarray gen)
+    | _ ->
+      let l = Array.to_list (Genarray.dims gen) in
+      Format.fprintf  ppf "GA[%s]" (String.concat ";" (List.map string_of_int l))
 
 end

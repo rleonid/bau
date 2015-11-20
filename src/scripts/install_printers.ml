@@ -6,3 +6,6 @@
 
 (* Array3 *)
 #install_printer Pp.Toplevel.gen_pp_ar3
+
+(* Genarray *)
+#install_printer Pp.Toplevel.gen_pp_gen

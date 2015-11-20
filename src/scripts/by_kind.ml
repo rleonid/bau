@@ -70,3 +70,7 @@ let all_ar3s = ar3_gen Float32 Fortran_layout 10 10 10
              , ar3_gen Int64 Fortran_layout 10 10 10
              , ar3_gen Char Fortran_layout 10 10 10
 
+let gen_gen k l dims =
+  let re = ran_gen k in
+  GA.init k l dims (fun _ -> re ())
+
