@@ -30,31 +30,13 @@
 let printers =
   [
     (* Vectors *)
-    "Pp.Toplevel.pp_rfvec";
-    "Pp.Toplevel.pp_rcvec";
-    "Pp.Toplevel.pp_rivec";
-    "Pp.Toplevel.pp_rinavec";
-    "Pp.Toplevel.pp_ri32vec";
-    "Pp.Toplevel.pp_ri64vec";
-    "Pp.Toplevel.pp_rcharvec";
+    "Pp.Toplevel.gen_pp_rvec";
 
     (* Matrices *)
-    "Pp.Toplevel.pp_fmat";
-    "Pp.Toplevel.pp_cmat";
-    "Pp.Toplevel.pp_imat";
-    "Pp.Toplevel.pp_inamat";
-    "Pp.Toplevel.pp_i32mat";
-    "Pp.Toplevel.pp_i64mat";
-    "Pp.Toplevel.pp_charmat";
+    "Pp.Toplevel.gen_pp_mat";
 
     (* Array3 *)
-    "Pp.Toplevel.pp_far3";
-    "Pp.Toplevel.pp_car3";
-    "Pp.Toplevel.pp_iar3";
-    "Pp.Toplevel.pp_inaar3";
-    "Pp.Toplevel.pp_i32ar3";
-    "Pp.Toplevel.pp_i64ar3";
-    "Pp.Toplevel.pp_charar3";
+    "Pp.Toplevel.gen_pp_ar3";
   ]
 
 let eval_string
