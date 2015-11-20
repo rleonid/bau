@@ -18,10 +18,10 @@ let complex_mat n m =
 let generate_test oc =
   let fmt = Format.formatter_of_out_channel oc in
   for i = 1 to test_size do
-    Pp.Toplevel.pp_fmat fmt (double_mat (ms ()) (ms ()));
+    Pp.Toplevel.gen_pp_mat fmt (double_mat (ms ()) (ms ()));
   done;
   for i = 1 to test_size do
-    Pp.Toplevel.pp_cmat fmt (complex_mat (ms ()) (ms ()));
+    Pp.Toplevel.gen_pp_mat fmt (complex_mat (ms ()) (ms ()));
   done
 
 let () =
