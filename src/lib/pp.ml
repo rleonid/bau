@@ -855,7 +855,7 @@ module ThreeD = struct
     | Fortran_layout -> Array.init (Array3.dim3 ar3) (fun i -> i + 1)
     | C_layout       -> Array.init (Array3.dim1 ar3) (fun i -> i)
 
-  let gen_pp_3d
+  let gen_pp_ar3
     ?matrix_separator
     ?(ellipsis = !Context.ellipsis_default)
     ?(three_d_context = !Context.three_d_default)
@@ -912,6 +912,23 @@ module ThreeD = struct
 
 end
 
+(* Determine the element printer based upon array kind. *)
+let formatter_el : type a b. (a, b) kind ->
+  (Format.formatter -> a -> unit) = function
+  | Float32 -> pp_float_el
+  | Float64 -> pp_float_el
+  | Complex32 -> pp_complex_el
+  | Complex64 -> pp_complex_el
+  | Int8_signed -> pp_int_el
+  | Int8_unsigned -> pp_int_el
+  | Int16_signed -> pp_int_el
+  | Int16_unsigned -> pp_int_el
+  | Int -> pp_int_el
+  | Nativeint -> pp_intna_el
+  | Int32 -> pp_int32_el
+  | Int64 -> pp_int64_el
+  | Char -> pp_char_el
+
 (* Good pretty-printers for toplevels *)
 
 module Toplevel = struct
@@ -924,33 +941,20 @@ module Toplevel = struct
   let pp_labeled_col ppf c = if c >= 0 then fprintf ppf "C%d" c
   let pp_labeled_row ppf r = if r >= 0 then fprintf ppf "R%d" r
 
-  let gen_pp_vec pp_el ppf vec =
+  let gen_pp_vec ppf vec =
+    let pp_el = formatter_el (Array1.kind vec) in
     pp_mat_gen ~pp_left:pp_labeled_row pp_el ppf (from_col_vec vec)
 
-  let pp_fvec ppf vec = gen_pp_vec pp_float_el ppf vec
-  let pp_cvec ppf vec = gen_pp_vec pp_complex_el ppf vec
-  let pp_ivec ppf vec = gen_pp_vec pp_int_el ppf vec
-  let pp_inavec ppf vec = gen_pp_vec pp_intna_el ppf vec
-  let pp_i32vec ppf vec = gen_pp_vec pp_int32_el ppf vec
-  let pp_i64vec ppf vec = gen_pp_vec pp_int64_el ppf vec
-  let pp_charvec ppf vec = gen_pp_vec pp_char_el ppf vec
-
-  let gen_pp_rvec pp_el ppf vec =
+  let gen_pp_rvec ppf vec =
+    let pp_el = formatter_el (Array1.kind vec) in
     pp_mat_gen ~pp_head:pp_labeled_row pp_el ppf (from_row_vec vec)
-
-  let pp_rfvec ppf vec = gen_pp_rvec pp_float_el ppf vec
-  let pp_rcvec ppf vec = gen_pp_rvec pp_complex_el ppf vec
-  let pp_rivec ppf vec = gen_pp_rvec pp_int_el ppf vec
-  let pp_rinavec ppf vec = gen_pp_rvec pp_intna_el ppf vec
-  let pp_ri32vec ppf vec = gen_pp_rvec pp_int32_el ppf vec
-  let pp_ri64vec ppf vec = gen_pp_rvec pp_int64_el ppf vec
-  let pp_rcharvec ppf vec = gen_pp_rvec pp_char_el ppf vec
 
   (* Old capability to label the layout via the top_left_corner *)
   let label_layout mat = if isf (Array2.layout mat) then "F" else "C"
 
   (* Matrices *)
-  let gen_pp_mat pp_el ppf mat label_corner left_label =
+  let gen_pp_mat_sp label_corner left_label ppf mat =
+    let pp_el = formatter_el (Array2.kind mat) in
     if left_label then
       pp_mat_gen ~pp_head:pp_labeled_col ~pp_left:pp_labeled_row ?label_corner
         pp_el ppf mat
@@ -958,30 +962,28 @@ module Toplevel = struct
       pp_mat_gen ~pp_head:pp_labeled_col ?label_corner
         pp_el ppf mat
 
-  let pp_fmat ppf mat = gen_pp_mat pp_float_el ppf mat None true
-  let pp_cmat ppf mat = gen_pp_mat pp_complex_el ppf mat None true
-  let pp_imat ppf mat = gen_pp_mat pp_int_el ppf mat None true
-  let pp_inamat ppf mat = gen_pp_mat pp_intna_el ppf mat None true
-  let pp_i32mat ppf mat = gen_pp_mat pp_int32_el ppf mat None true
-  let pp_i64mat ppf mat = gen_pp_mat pp_int64_el ppf mat None true
-  let pp_charmat ppf mat = gen_pp_mat pp_char_el ppf mat None true
+  let gen_pp_mat ppf mat = gen_pp_mat_sp None true ppf mat
 
   (* Array3d  *)
-  let wrap_gen pp_el =
+  let wrap_gen () =
     (fun ~new_row m si ->
       let b = Buffer.create 32 in
       let label_corner = Some (fun _ -> string_of_int si) in
-      gen_pp_mat pp_el (Format.formatter_of_buffer b) m label_corner new_row;
+      gen_pp_mat_sp label_corner new_row (Format.formatter_of_buffer b) m;
       b)
 
-  let gen_pp_3d ppm ppf arr = ThreeD.gen_pp_3d ~matrix_separator:"; " ppm ppf arr
+  let gen_pp_ar3 ppf ar3 =
+    let ppm = wrap_gen () in
+    ThreeD.gen_pp_ar3 ~matrix_separator:"; " ppm ppf ar3
 
-  let pp_far3 ppf ar3 = gen_pp_3d (wrap_gen pp_float_el) ppf ar3
-  let pp_car3 ppf ar3 = gen_pp_3d (wrap_gen pp_complex_el) ppf ar3
-  let pp_iar3 ppf ar3 = gen_pp_3d (wrap_gen pp_int_el) ppf ar3
-  let pp_inaar3 ppf ar3 = gen_pp_3d (wrap_gen pp_intna_el) ppf ar3
-  let pp_i32ar3 ppf ar3 = gen_pp_3d (wrap_gen pp_int32_el) ppf ar3
-  let pp_i64ar3 ppf ar3 = gen_pp_3d (wrap_gen pp_int64_el) ppf ar3
-  let pp_charar3 ppf ar3 = gen_pp_3d (wrap_gen pp_char_el) ppf ar3
+  (* Genarray *)
+  let gen_pp_gen ppf gen =
+    match Genarray.num_dims gen with
+    | 1 -> gen_pp_vec ppf (array1_of_genarray gen)
+    | 2 -> gen_pp_mat ppf (array2_of_genarray gen)
+    | 3 -> gen_pp_ar3 ppf (array3_of_genarray gen)
+    | _ ->
+      let l = Array.to_list (Genarray.dims gen) in
+      Format.fprintf  ppf "GA[%s]" (String.concat ";" (List.map string_of_int l))
 
 end
