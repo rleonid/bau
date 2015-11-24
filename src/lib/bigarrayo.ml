@@ -52,6 +52,23 @@ module A2 = struct
       Array.init d2 (fun j ->
         f (unsafe_get a (o i) (o j))))
 
+  let natural_slice_indices (type l) (m : ('a, 'b, l) t) =
+    match layout m with
+    | Fortran_layout -> Array.init (dim2 m) (fun i -> i + 1)
+    | C_layout       -> Array.init (dim1 m) (fun i -> i)
+
+  (* Sequential access *)
+  let slice (type l) (m : ('a, 'b, l) t) i : ('a, 'b, l) A1.t =
+    match layout m with
+    | Fortran_layout -> slice_right m i
+    | C_layout       -> slice_left m i
+
+  (* Nonsequential slicing, requires a copy. *)
+  let nonseq (type l) (m : ('a, 'b, l) t) i : ('a, 'b, l) A1.t =
+    let l = layout m in
+    match l with
+    | Fortran_layout -> A1.init (kind m) l (dim2 m) (unsafe_get m i)
+    | C_layout       -> A1.init (kind m) l (dim1 m) (fun j -> unsafe_get m j i)
 
   end
 
@@ -75,6 +92,25 @@ module A3 = struct
       Array.init d2 (fun j ->
         Array.init d3 (fun k ->
         f (unsafe_get a (o i) (o j) (o k)))))
+
+  let natural_slice_indices (type l) (ar3 : ('a, 'b, l) t) =
+    match layout ar3 with
+    | Fortran_layout -> Array.init (dim3 ar3) (fun i -> i + 1)
+    | C_layout       -> Array.init (dim1 ar3) (fun i -> i)
+
+  let slice (type l) (ar3 : ('a, 'b, l) t) i : ('a, 'b, l) A2.t =
+    match layout ar3 with
+    | Fortran_layout -> slice_right_2 ar3 i
+    | C_layout       -> slice_left_2 ar3 i
+
+  (* Nonsequential slicing, requires a copy. *)
+  let nonseq (type l) (m : ('a, 'b, l) t) i : ('a, 'b, l) A2.t =
+    let l = layout m in
+    match l with
+    | Fortran_layout ->
+      A2.init (kind m) l (dim2 m) (dim3 m) (unsafe_get m i)
+    | C_layout       ->
+      A2.init (kind m) l (dim1 m) (dim2 m) (fun j k -> unsafe_get m j k i)
 
   end
 
@@ -107,5 +143,34 @@ module GA = struct
     let n = Array.fold_left ( * ) 1 d in
     A1.to_array f (reshape_1 a n)
 
+  let natural_slice_indices (type l) (ga : ('a, 'b, l) t) =
+    let d = dims ga in
+    let n = Array.length d in
+    match layout ga with
+    | Fortran_layout -> Array.init d.(n - 1) (fun i -> i + 1)
+    | C_layout       -> Array.init d.(0) (fun i -> i)
+
+  let slice (type l) (ga : ('a, 'b, l) t) i : ('a, 'b, l) t =
+    match layout ga with
+    | Fortran_layout -> slice_right ga [|i|]
+    | C_layout       -> slice_left ga [|i|]
+
+  (* Nonsequential slicing, requires a copy. *)
+  let nonseq (type l) (ga : ('a, 'b, l) t) i : ('a, 'b, l) t =
+    let d = dims ga in
+    let n = Array.length d in
+    let nm1 = n - 1 in
+    let l = layout ga in
+    match l with
+    | Fortran_layout ->
+        let nd = Array.sub d 1 nm1 in
+        d.(0) <- i;
+        let full idx = Array.blit idx 0 d 1 nm1; d in
+        init (kind ga) l nd (fun idx -> get ga (full idx))
+    | C_layout       ->
+        let nd = Array.sub d 0 nm1 in
+        d.(nm1) <- i;
+        let full idx = Array.blit idx 0 d 0 nm1; d in
+        init (kind ga) l nd (fun idx -> get ga (full idx))
   end
 

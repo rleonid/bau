@@ -845,7 +845,9 @@ module ThreeD = struct
     in
     loop 0
 
-  let cs i (type l) (ar3 : ('a, 'b, l) Array3.t) : ('a, 'b, l) Array2.t =
+  (* These 2 functions are replicated in Bigarrayo, but retained here until
+     that library is a bit more mature. We should remove these duplicates. *)
+  let cs (type l) (ar3 : ('a, 'b, l) Array3.t) i : ('a, 'b, l) Array2.t =
     match Array3.layout ar3 with
     | Fortran_layout -> Array3.slice_right_2 ar3 i
     | C_layout       -> Array3.slice_left_2 ar3 i
@@ -885,8 +887,8 @@ module ThreeD = struct
           let (j,sep,sl) = sli.(i) in
           let buf_j =
             if new_row
-            then pp_mat_to_buffer ~new_row (cs j ar3) j
-            else pp_mat_to_buffer ~new_row (cs j ar3) j
+            then pp_mat_to_buffer ~new_row (cs ar3 j) j
+            else pp_mat_to_buffer ~new_row (cs ar3 j) j
           in
           let wb, h, p = make_row_printers (Buffer.contents buf_j) in
           loop false (i + 1) (w + wb + sl) (h::hs) ((p, sep, sl) :: printers)
