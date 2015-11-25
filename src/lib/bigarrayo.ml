@@ -70,6 +70,16 @@ module A2 = struct
     | Fortran_layout -> A1.init (kind m) l (dim2 m) (unsafe_get m i)
     | C_layout       -> A1.init (kind m) l (dim1 m) (fun j -> unsafe_get m j i)
 
+  let row_folds a f i =
+    let l = layout a in
+    let n = dim2 a in
+    let v = ref i in
+    let o = to_offset l in
+    Array.init (dim1 a) (fun r ->
+        v := i;
+        foreach l n (fun c -> v := f !v (unsafe_get a (o r) c));
+        !v)
+
   end
 
 module A3 = struct
