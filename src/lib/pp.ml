@@ -209,7 +209,7 @@ let pp_mat_gen
             for c = 0 to hor_stop do
               fmt_col ~src_ofs:array_start_idx  ~dst_ofs:0 c done;
             if has_hor then begin
-              let src_ofs = n - horizontal_context + 1 in
+              let src_ofs = n - horizontal_context + array_start_idx in
               let dst_ofs = horizontal_context in
               for c = 0 to horizontal_context - 1 do
                 fmt_col ~src_ofs ~dst_ofs c
