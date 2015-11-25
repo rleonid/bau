@@ -2,3 +2,4 @@
 #load_rec "bau.cma"
 #use "src/scripts/install_printers.ml"
 #use "src/scripts/random_generators.ml" 
+open Bigarrayo
