@@ -65,20 +65,29 @@ let sum_cols_n m =
 
 let sum_cols_b m = A2.col_folds m (+.) 0.0
 
+open Lacaml.D
+
+let sum_cols_l m =
+  Array.init (A2.dim2 m) (fun i ->
+    let s = A2.slice_right m (i + 1) in
+    Vec.sum s)
+
 let test samples n m =
   let data = Array.init samples (fun _ -> generate n m) in
   let tn () = ignore (Array.map (fun (n, _, _) -> ignore (sum_rows_n n)) data) in
   let tf () = ignore (Array.map (fun (_, f, _) -> ignore (sum_rows_b f)) data) in
   let tc () = ignore (Array.map (fun (_, _, c) -> ignore (sum_rows_b c)) data) in
   time "native" tn;
-  time "fortran" tc;
-  time "c" tf;
+  time "fortran" tf;
+  time "c" tc;
   let tn () = ignore (Array.map (fun (n, _, _) -> ignore (sum_cols_n n)) data) in
   let tf () = ignore (Array.map (fun (_, f, _) -> ignore (sum_cols_b f)) data) in
   let tc () = ignore (Array.map (fun (_, _, c) -> ignore (sum_cols_b c)) data) in
+  let tl () = ignore (Array.map (fun (_, f, _) -> ignore (sum_cols_l f)) data) in
   time "native" tn;
-  time "fortran" tc;
-  time "c" tf
+  time "fortran" tf;
+  time "c" tc;
+  time "lacaml" tl
 
 let () =
   if not (!Sys.interactive) then
@@ -86,7 +95,7 @@ let () =
          (int_of_string Sys.argv.(2))
          (int_of_string Sys.argv.(3))
 
-(* ocamlbuild -use-ocamlfind -package bigarray -I src/scripts/ -I src/lib/ bau.cma profile.native
+(* ocamlbuild -use-ocamlfind -package bigarray -pacakage lacaml -I src/scripts/ profile.native
    Sample run:
 $ ./profile.native 10 3000 3000
 native    :0.407063
@@ -95,5 +104,23 @@ c         :3.703106
 native    :0.312351
 fortran   :3.426450
 c         :1.829178
+
+With Lacaml: ./profile.native 100 300 300
+native    :0.036494
+fortran   :0.289516
+c         :0.185806
+native    :0.044074
+fortran   :0.205087
+c         :0.266259
+lacaml    :0.016714  <--- best!
+
+./profile.native 10 3000 3000
+native    :0.377344
+fortran   :4.466229
+c         :2.012626
+native    :0.473492
+fortran   :2.073251
+c         :3.913682
+lacaml    :0.100399  <--- best!
 *)
 
