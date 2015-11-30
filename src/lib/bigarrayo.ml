@@ -174,3 +174,6 @@ module GA = struct
         init (kind ga) l nd (fun idx -> get ga (full idx))
   end
 
+(** Fold *)
+external num_elements : ('a, 'b, 'c) Genarray.t -> int = "num_elements"
+

@@ -1,2 +1,3 @@
-true: annot, bin_annot, principal
-<src/*/*.cmx> and not <src/bau.cm*> : for-pack(Bau)
+true          : annot, bin_annot, principal
+<**/*.cma>    : use_fold, custom
+<**/*.cmxa>   : use_fold
