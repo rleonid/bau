@@ -90,10 +90,18 @@ let test samples n m =
   time "lacaml" tl
 
 let () =
-  if not (!Sys.interactive) then
-    test (int_of_string Sys.argv.(1))
-         (int_of_string Sys.argv.(2))
-         (int_of_string Sys.argv.(3))
+  if not (!Sys.interactive) then begin
+    let runs, n, m =
+      if Array.length Sys.argv < 4 then
+        10000, 40, 50
+      else
+        int_of_string Sys.argv.(1)
+        , int_of_string Sys.argv.(2)
+        , int_of_string Sys.argv.(3)
+    in
+    Printf.printf "%d runs of %d by %d\n" runs n m;
+    test runs n m
+  end
 
 (* ocamlbuild -use-ocamlfind -package bigarray -pacakage lacaml -I src/scripts/ profile.native
    Sample run:
