@@ -91,7 +91,7 @@ module A3 = struct
     Array.init d1 (fun i ->
       Array.init d2 (fun j ->
         Array.init d3 (fun k ->
-        f (unsafe_get a (o i) (o j) (o k)))))
+          f (unsafe_get a (o i) (o j) (o k)))))
 
   let natural_slice_indices (type l) (ar3 : ('a, 'b, l) t) =
     match layout ar3 with
@@ -137,6 +137,13 @@ module GA = struct
     let m = create k l d in
     foreachl d (isf l) (fun arr -> set m arr (f arr));
     m
+
+  (* Seems like the natural thing to do. *)
+  let of_array ?dims k l arr =
+    let ga = genarray_of_array1 (A1.of_array k l arr) in
+    match dims with
+    | None -> ga
+    | Some dims -> reshape ga dims
 
   let to_array ~f a =
     let d = dims a in
