@@ -1,3 +1,5 @@
 true          : annot, bin_annot, principal
 <**/*.cma>    : use_fold, custom
 <**/*.cmxa>   : use_fold
+<**/*.byte>   : use_fold, custom
+<**/*.native> : use_fold
