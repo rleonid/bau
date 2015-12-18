@@ -13,6 +13,8 @@ let () =
             dep ["link";"ocaml";"use_fold"] ["src/lib/libfold.a"];
             flag ["link";"ocaml";"byte";"use_fold"]
               (S[A"-dllib";A"-lfold" ;A"-ccopt";A"-Lsrc/lib"     (* specify path to library *) ]);
+            flag ["link";"ocaml";"native";"use_fold"]
+              (S[A"-cclib";A"-lfold" ;A"-ccopt";A"-Lsrc/lib"     (* specify path to library *) ]);
           end
   in
   dispatch additional_rules

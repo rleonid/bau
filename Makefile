@@ -1,6 +1,6 @@
 
 LIB_EXTS=cma cmxa cmxs
-INSTALL_EXTS=$(LIB_EXTS) a o cmi cmo cmx
+INSTALL_EXTS=$(LIB_EXTS) a o cmi cmo cmx so
 
 #	ocamlbuild -use-ocamlfind -pkg bigarray -I src bau.cmo bau.cma bau.cmxa bau.cmxs
 
