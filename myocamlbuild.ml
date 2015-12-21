@@ -15,6 +15,7 @@ let () =
               (S[A"-dllib";A"-lfold" ;A"-ccopt";A"-Lsrc/lib"     (* specify path to library *) ]);
             flag ["link";"ocaml";"native";"use_fold"]
               (S[A"-cclib";A"-lfold" ;A"-ccopt";A"-Lsrc/lib"     (* specify path to library *) ]);
+            flag ["ocaml"; "compile"; "native"] (S[A"-S"; ])
           end
   in
   dispatch additional_rules
