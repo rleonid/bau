@@ -25,14 +25,14 @@ let to_offset l = if isf l then (fun i -> i + 1) else (fun i -> i)
 let a1_fold_left f i a =
   let r = ref i in
   for i = 1 to Array1.dim a do
-    r := f (Array1.unsafe_get a i) !r
+    r := f !r (Array1.unsafe_get a i)
   done;
   !r
 
 let a1_fold_left_safe f (i : float) a =
   let r = ref i in
   for i = 1 to Array1.dim a do
-    r := f (Array1.get a i) !r
+    r := f !r (Array1.get a i)
   done;
   !r
 
@@ -48,7 +48,7 @@ let sum_l v = Vec.sum v
 let a1_fold_left_cons f i (a : vec) =
   let r = ref i in
   for i = 1 to Array1.dim a do
-    r := f (Array1.unsafe_get a i) !r
+    r := f !r (Array1.unsafe_get a i)
   done;
   !r
 
@@ -60,11 +60,52 @@ let sum_f_cons = a1_fold_left_cons (+.) 0.
 let a1_fold_left_cons2 f i (a : (float, float64_elt, fortran_layout) Array1.t) =
   let r = ref i in
   for i = 1 to Array1.dim a do
-    r := f (Array1.unsafe_get a i) !r
+    r := f !r (Array1.unsafe_get a i)
   done;
   !r
 
 let sum_f_cons2 = a1_fold_left_cons2 (+.) 0.
+
+let a1_fold_left_cons3_fortran f i (a : (float, float64_elt, fortran_layout) Array1.t) =
+  let r = ref i in
+  for i = 1 to Array1.dim a do
+    r := f !r (Array1.unsafe_get a i)
+  done;
+  !r
+
+let a1_fold_left_cons3_c f i (a : (float, float64_elt, c_layout) Array1.t) =
+  let r = ref i in
+  for i = 0 to Array1.dim a - 1 do
+    r := f !r (Array1.unsafe_get a i)
+  done;
+  !r
+
+(* Parameterized over layout but not kind and fast. *)
+let sum_f_cons3 (type l) (v : ('a, 'b, l) Array1.t) : float =
+  match Array1.layout v with
+  | Fortran_layout -> a1_fold_left_cons3_fortran (+.) 0. v
+  | C_layout       -> a1_fold_left_cons3_c (+.) 0. v
+
+(* Parameterized over kind byt not layout and fast. *)
+let a1_fold_left_cons4_float64 f i (a : (float, float64_elt, fortran_layout) Array1.t) =
+  let r = ref i in
+  for i = 1 to Array1.dim a do
+    r := f !r (Array1.unsafe_get a i)
+  done;
+  !r
+
+let a1_fold_left_cons4_float32 f i (a : (float, float32_elt, fortran_layout) Array1.t) =
+  let r = ref i in
+  for i = 1 to Array1.dim a do
+    r := f !r (Array1.unsafe_get a i)
+  done;
+  !r
+
+let sum_f_cons4 (type a) (type b) (v : (a, b, fortran_layout) Array1.t) : float =
+  match Array1.kind v with
+  | Float64        -> a1_fold_left_cons4_float64 (+.) 0. v
+  | Float32        -> a1_fold_left_cons4_float32 (+.) 0. v
+  | _              -> failwith "NI"
 
 let test samples n =
   let data         = Array.init samples (fun _ -> generate n) in
@@ -75,6 +116,8 @@ let test samples n =
   let tl_lacaml () = Array.map (fun (_, f, _) -> sum_l f) data in
   let tf_cons ()   = Array.map (fun (_, f, _) -> sum_f_cons f) data in
   let tf_con2 ()   = Array.map (fun (_, f, _) -> sum_f_cons2 f) data in
+  let tf_con3 ()   = Array.map (fun (_, _, c) -> sum_f_cons3 c) data in
+  let tf_con4 ()   = Array.map (fun (_, f, _) -> sum_f_cons4 f) data in
   let native  = time "native" tn in
   let nat_con = time "nat cons" tn_cons in
   let unsafe  = time "unsafe" tf_unsafe in
@@ -82,6 +125,8 @@ let test samples n =
   let lacaml  = time "lacaml" tl_lacaml in
   let constra = time "const" tf_cons in
   let constr2 = time "const 2" tf_con2 in
+  let constr3 = time "const 3" tf_con3 in
+  let constr4 = time "const 4" tf_con4 in
   Printf.printf "equal %b\n"
     (native = nat_con
      && nat_con = unsafe
@@ -89,6 +134,8 @@ let test samples n =
      && safe = lacaml
      && lacaml = constra
      && constra = constr2
+     && constr2 = constr3
+     && constr3 = constr4
     )
 
 let () =
