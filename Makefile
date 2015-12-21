@@ -22,8 +22,8 @@ clean:
 install:
 	ocamlfind install bau META $(foreach e,$(INSTALL_EXTS),_build/src/lib/*.$(e))
 		
-profile:
-	ocamlbuild -use-ocamlfind -pkgs bigarray,lacaml -I src/scripts/ profile.native
+profile_row:
+	ocamlbuild -use-ocamlfind -pkgs bigarray,lacaml -I src/scripts/ profile_row_col_fold.native
 
 profile_fold:
 	ocamlbuild -use-ocamlfind -pkgs bigarray,lacaml -I src/scripts/ -I src/lib profile_fold.native
