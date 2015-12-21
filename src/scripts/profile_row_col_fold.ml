@@ -72,6 +72,8 @@ end
 
 let sum_rows_n = Array.map (Array.fold_left (+.) 0.)
 
+let sum_rows_n_cons (m : float array array) = Array.map (Array.fold_left (+.) 0.) m
+
 let sum_rows_b m = A2.row_folds m (+.) 0.0
 let sum_rows_bf m = row_folds_f m (+.) 0.0
 
@@ -89,33 +91,37 @@ let sum_cols_l m =
     let s = A2.slice_right m (i + 1) in
     Vec.sum s)
 
-let eq_arr2 p a1 a2 =
-  Array.fold_left (fun (b, i) v -> b && p a2.(i) v, i + 1) (true, 0) a1
-  |> fst
+let all_equal lst =
+  let rec loop a = function
+    | []                    -> a && true
+    | t :: []               -> a && true
+    | h :: ((t :: _) as tl) -> loop (a && h = t) tl
+  in loop true lst
 
 let test samples n m =
   let data = Array.init samples (fun _ -> generate n m) in
   let tn () = Array.map (fun (n, _, _) -> ignore (sum_rows_n n)) data in
+  let tn_cons () = Array.map (fun (n, _, _) -> ignore (sum_rows_n_cons n)) data in
   let tf () = Array.map (fun (_, f, _) -> ignore (sum_rows_b f)) data in
   let tc () = Array.map (fun (_, _, c) -> ignore (sum_rows_b c)) data in
   let tff () = Array.map (fun (_, f, _) -> ignore (sum_rows_bf f)) data in
-  let nn = time "native" tn in
-  let nf = time "fortran" tf in
-  let nc = time "c" tc in
-  let nff = time "f float" tff in
-  Printf.printf "equal %b \n" (nn = nf && nf = nc && nc = nff);
+  Printf.printf "equal %b \n" (all_equal
+      [ time "native" tn
+      ; time "nat con" tn_cons
+      ; time "fortran" tf
+      ; time "c" tc
+      ; time "f float" tff
+      ]);
   let tn () = Array.map (fun (n, _, _) -> ignore (sum_cols_n n)) data in
   let tf () = Array.map (fun (_, f, _) -> ignore (sum_cols_b f)) data in
   let tc () = Array.map (fun (_, _, c) -> ignore (sum_cols_b c)) data in
   let tl () = Array.map (fun (_, f, _) -> ignore (sum_cols_l f)) data in
-  let nn = time "native" tn in
-  let nf = time "fortran" tf in
-  let nc = time "c" tc; in
-  let nl = time "lacaml" tl in
-  Printf.printf "equal %b %b %b\n"
-    (eq_arr2 (=) nn nf)
-    (eq_arr2 (=) nf nc)
-    (eq_arr2 (=) nc nl)
+  Printf.printf "equal %b\n" (all_equal
+    [ time "native" tn
+    ; time "fortran" tf
+    ; time "c" tc
+    ; time "lacaml" tl
+    ])
 
 let () =
   if not (!Sys.interactive) then begin
