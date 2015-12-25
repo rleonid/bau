@@ -86,7 +86,7 @@ let sum_f_cons3 (type l) (v : ('a, 'b, l) Array1.t) : float =
   | Fortran_layout -> a1_fold_left_cons3_fortran (+.) 0. v
   | C_layout       -> a1_fold_left_cons3_c (+.) 0. v
 
-(* Parameterized over kind byt not layout and fast. *)
+(* Parameterized over kind but not layout and fast. *)
 let a1_fold_left_cons4_float64 f i (a : (float, float64_elt, fortran_layout) Array1.t) =
   let r = ref i in
   for i = 1 to Array1.dim a do
@@ -107,6 +107,26 @@ let sum_f_cons4 (type a) (type b) (v : (a, b, fortran_layout) Array1.t) : float 
   | Float32        -> a1_fold_left_cons4_float32 (+.) 0. v
   | _              -> failwith "NI"
 
+(* best we can do *)
+let a1_fold_left_gen (type l) f i (v : (float,float64_elt,l) Array1.t) =
+  match Array1.layout v with
+  | C_layout -> a1_fold_left_cons3_c f i v
+  | Fortran_layout -> a1_fold_left_cons3_fortran f i v
+
+(*
+  let s,e =
+    match Array1.layout v with
+    | C_layout -> 0, Array1.dim v - 1
+    | Fortran_layout -> 1, Array1.dim v
+  in
+  let r = ref i in
+  for i = s to e do r := f !r (Array1.unsafe_get v i) done;
+  !r
+*)
+
+let sum_f_g v = a1_fold_left_gen (+.) 0. v
+
+
 let test samples n =
   let data         = Array.init samples (fun _ -> generate n) in
   let tn ()        = Array.map (fun (n, _, _) -> sum_n n) data in
@@ -118,6 +138,8 @@ let test samples n =
   let tf_con2 ()   = Array.map (fun (_, f, _) -> sum_f_cons2 f) data in
   let tf_con3 ()   = Array.map (fun (_, _, c) -> sum_f_cons3 c) data in
   let tf_con4 ()   = Array.map (fun (_, f, _) -> sum_f_cons4 f) data in
+  let tf_cogf ()   = Array.map (fun (_, f, _) -> sum_f_g f) data in
+  let tf_cogc ()   = Array.map (fun (_, _, c) -> sum_f_g c) data in
   let native  = time "native" tn in
   let nat_con = time "nat cons" tn_cons in
   let unsafe  = time "unsafe" tf_unsafe in
@@ -127,6 +149,8 @@ let test samples n =
   let constr2 = time "const 2" tf_con2 in
   let constr3 = time "const 3" tf_con3 in
   let constr4 = time "const 4" tf_con4 in
+  let cons_gf = time "con gen f" tf_cogf in
+  let cons_gc = time "con gen c" tf_cogc in
   Printf.printf "equal %b\n"
     (native = nat_con
      && nat_con = unsafe
@@ -136,6 +160,8 @@ let test samples n =
      && constra = constr2
      && constr2 = constr3
      && constr3 = constr4
+     && constr4 = cons_gf
+     && cons_gf = cons_gc
     )
 
 let () =

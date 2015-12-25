@@ -25,6 +25,9 @@ install:
 profile:
 	ocamlbuild -use-ocamlfind -pkgs bigarray,lacaml -I src/scripts/ profile.native
 
+profile_int:
+	ocamlbuild -use-ocamlfind -pkgs bigarray,lacaml -I src/scripts/ profile_int.native
+
 profile_row:
 	ocamlbuild -use-ocamlfind -pkgs bigarray,lacaml -I src/scripts/ profile_row_col_fold.native
 
