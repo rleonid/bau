@@ -3,6 +3,18 @@ open Parsetree
 open Ast_mapper
 open Ast_helper
 
+(* Utilities *)
+let split c s =
+  let rec loop o =
+    try
+      let i = String.index_from s o c in
+      (String.sub s o (i - o)) :: (loop (i + 1))
+    with Not_found ->
+      [String.sub s o (String.length s - o)]
+  in
+  loop 0
+
+(* AST construction helpers *)
 let to_str ?(loc=Location.none) s = Location.mkloc s loc
 
 let lid ?(loc=Location.none) s =
@@ -42,46 +54,42 @@ let make_for_loop index start_exp end_exp body_exp =
 let length_expr arr =
   Exp.apply (ex_id "Array1.dim") ["",(ex_id arr)]
 
+let create_fold = function
+  | [{ pstr_desc = Pstr_eval
+        ({pexp_desc = Pexp_apply
+              (fun_exp, [("", init); ("", v)]); _}, _); _ }] ->
+      let open Ast_helper in
+      let fold =
+        make_fold_left "a" (fun () ->
+          make_ref "r" init (fun () -> 
+            Exp.sequence 
+              (make_for_loop "i"
+                (Exp.constant (Const_int 1))
+                (length_expr "a")
+                (assign_ref "r" (apply_fold fun_exp "r" "a" "i"))
+              )
+              (lookup_ref "r")
+              ))
+          (fun () -> 
+            Exp.apply (ex_id "fold_left") ["", v])
+      in
+      fold
+      (*Exp.apply fun_exp [(li,init); (lv, v)] *)
+  | _ ->
+    Ast_helper.Exp.constant (Const_float "(-1.0)")
+
 
 let bigarray_fold_mapper argv =
   { default_mapper with
     expr = fun mapper expr ->
       match expr with
-      | { pexp_desc = Pexp_extension ({ txt = "test" }, PStr [])} ->
-        Ast_helper.Exp.constant (Const_float "42.")
-      | { pexp_desc = Pexp_extension ({ txt = "test" }, PStr payload)} ->
-        begin
-        let n  = List.length payload in
-        let () = Printf.eprintf "payload length: %d\n" n in
-        match payload with
-        | [{ pstr_desc = Pstr_eval
-              ({pexp_desc = Pexp_apply
-                    (fun_exp, [("", init); ("", v)]); _}, _); _ }] ->
-            let open Ast_helper in
-            let fold =
-              make_fold_left "a" (fun () ->
-                make_ref "r" init (fun () -> 
-                  Exp.sequence 
-                    (make_for_loop "i"
-                      (Exp.constant (Const_int 1))
-                      (length_expr "a")
-                      (assign_ref "r" (apply_fold fun_exp "r" "a" "i"))
-                    )
-                    (lookup_ref "r")
-                    ))
-                (fun () -> 
-                   Exp.apply (ex_id "fold_left") ["", v])
-            in
-            fold
-            (*Exp.apply fun_exp [(li,init); (lv, v)] *)
-        | _ ->
-          Ast_helper.Exp.constant (Const_float "(-1.0)")
-        end
-
-      (*| { pexp_desc = Pexp_extension ({ txt; _ }, _) } ->
-        match String.split "." 0 txt with
-        | [ "array1"; "fold_left"; kind ] -> 
-        | _ -> *)
+      | { pexp_desc = Pexp_extension ({ txt }, PStr payload)} ->
+          begin
+            match split '.' txt with
+            | ["array1"; "fold_left"; "float64"] ->
+              create_fold payload
+            | _ -> default_mapper.expr mapper expr 
+          end
       | other -> default_mapper.expr mapper other; }
 
 let () =
