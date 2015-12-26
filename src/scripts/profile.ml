@@ -38,8 +38,8 @@ let a1_fold_left_safe f (i : float) a =
 
 let sum_n = Array.fold_left (+.) 0.
 let sum_n_cons (a : float array) = Array.fold_left (+.) 0. a
-let sum_f_unsafe = a1_fold_left (+.) 0.
-let sum_f_safe = a1_fold_left_safe (+.) 0.
+(*let sum_f_unsafe = a1_fold_left (+.) 0.
+let sum_f_safe = a1_fold_left_safe (+.) 0. *)
 
 open Lacaml.D
 
@@ -109,12 +109,28 @@ let sum_f_cons4 (type a) (type b) (v : (a, b, fortran_layout) Array1.t) : float 
 
 (* best we can do *)
 let a1_fold_left_gen (type l) f i (v : (float,float64_elt,l) Array1.t) =
+  let fold_left_fortran (a : (float,float64_elt,fortran_layout) Array1.t) =
+    let r = ref i in
+    for i = 1 to Array1.dim a do
+      r := f !r (Array1.unsafe_get a i)
+    done;
+    !r
+  in
+  let fold_left_c (a : (float, float64_elt, c_layout) Array1.t) =
+    let r = ref i in
+    for i = 0 to Array1.dim a - 1 do
+      r := f !r (Array1.unsafe_get a i)
+    done;
+    !r
+  in
+  match Array1.layout v with
+  | Fortran_layout -> fold_left_fortran v
+  | C_layout       -> fold_left_c v
+
+  (*
   match Array1.layout v with
   | C_layout -> a1_fold_left_cons3_c f i v
   | Fortran_layout -> a1_fold_left_cons3_fortran f i v
-
-(*
-  let s,e =
     match Array1.layout v with
     | C_layout -> 0, Array1.dim v - 1
     | Fortran_layout -> 1, Array1.dim v
@@ -126,41 +142,40 @@ let a1_fold_left_gen (type l) f i (v : (float,float64_elt,l) Array1.t) =
 
 let sum_f_g v = a1_fold_left_gen (+.) 0. v
 
-
 let test samples n =
   let data         = Array.init samples (fun _ -> generate n) in
   let tn ()        = Array.map (fun (n, _, _) -> sum_n n) data in
   let tn_cons ()   = Array.map (fun (n, _, _) -> sum_n_cons n) data in
-  let tf_unsafe () = Array.map (fun (_, f, _) -> sum_f_unsafe f) data in
+  (*let tf_unsafe () = Array.map (fun (_, f, _) -> sum_f_unsafe f) data in
   let tf_safe ()   = Array.map (fun (_, f, _) -> sum_f_safe f) data in
   let tl_lacaml () = Array.map (fun (_, f, _) -> sum_l f) data in
   let tf_cons ()   = Array.map (fun (_, f, _) -> sum_f_cons f) data in
   let tf_con2 ()   = Array.map (fun (_, f, _) -> sum_f_cons2 f) data in
   let tf_con3 ()   = Array.map (fun (_, _, c) -> sum_f_cons3 c) data in
-  let tf_con4 ()   = Array.map (fun (_, f, _) -> sum_f_cons4 f) data in
+  let tf_con4 ()   = Array.map (fun (_, f, _) -> sum_f_cons4 f) data in *)
   let tf_cogf ()   = Array.map (fun (_, f, _) -> sum_f_g f) data in
   let tf_cogc ()   = Array.map (fun (_, _, c) -> sum_f_g c) data in
   let native  = time "native" tn in
   let nat_con = time "nat cons" tn_cons in
-  let unsafe  = time "unsafe" tf_unsafe in
+  (*let unsafe  = time "unsafe" tf_unsafe in
   let safe    = time "safe" tf_safe in
   let lacaml  = time "lacaml" tl_lacaml in
   let constra = time "const" tf_cons in
   let constr2 = time "const 2" tf_con2 in
   let constr3 = time "const 3" tf_con3 in
-  let constr4 = time "const 4" tf_con4 in
+  let constr4 = time "const 4" tf_con4 in *)
   let cons_gf = time "con gen f" tf_cogf in
   let cons_gc = time "con gen c" tf_cogc in
   Printf.printf "equal %b\n"
     (native = nat_con
-     && nat_con = unsafe
+     && nat_con = (*unsafe
      && unsafe = safe
      && safe = lacaml
      && lacaml = constra
      && constra = constr2
      && constr2 = constr3
      && constr3 = constr4
-     && constr4 = cons_gf
+     && constr4 = *)cons_gf
      && cons_gf = cons_gc
     )
 
