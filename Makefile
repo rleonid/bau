@@ -33,3 +33,9 @@ profile_row:
 
 profile_fold:
 	ocamlbuild -use-ocamlfind -pkgs bigarray,lacaml -I src/scripts/ -I src/lib profile_fold.native
+
+fold_ppx:
+	ocamlbuild -use-ocamlfind -pkgs compiler-libs.common -I +compiler-libs -I src/fold_ppx fold_ppx.byte
+
+fold_ppx_test: fold_ppx
+	ocamlbuild -use-ocamlfind -pkgs bigarray -tags "ppx(src/fold_ppx/fold_ppx.byte)" -I src/fold_ppx -cflag -dsource fold_ppx_test.native
