@@ -38,8 +38,8 @@ let a1_fold_left_safe f (i : float) a =
 
 let sum_n = Array.fold_left (+.) 0.
 let sum_n_cons (a : float array) = Array.fold_left (+.) 0. a
-let sum_f_unsafe = a1_fold_left (+.) 0.
-let sum_f_safe = a1_fold_left_safe (+.) 0.
+let sum_f_unsafe v = a1_fold_left (+.) 0. v
+let sum_f_safe v = a1_fold_left_safe (+.) 0. v
 
 open Lacaml.D
 
@@ -126,41 +126,35 @@ let a1_fold_left_gen (type l) f i (v : (float,float64_elt,l) Array1.t) =
 
 let sum_f_g v = a1_fold_left_gen (+.) 0. v
 
-
 let test samples n =
   let data         = Array.init samples (fun _ -> generate n) in
   let tn ()        = Array.map (fun (n, _, _) -> sum_n n) data in
   let tn_cons ()   = Array.map (fun (n, _, _) -> sum_n_cons n) data in
-  let tf_unsafe () = Array.map (fun (_, f, _) -> sum_f_unsafe f) data in
+  (*let tf_unsafe () = Array.map (fun (_, f, _) -> sum_f_unsafe f) data in
   let tf_safe ()   = Array.map (fun (_, f, _) -> sum_f_safe f) data in
   let tl_lacaml () = Array.map (fun (_, f, _) -> sum_l f) data in
   let tf_cons ()   = Array.map (fun (_, f, _) -> sum_f_cons f) data in
   let tf_con2 ()   = Array.map (fun (_, f, _) -> sum_f_cons2 f) data in
   let tf_con3 ()   = Array.map (fun (_, _, c) -> sum_f_cons3 c) data in
-  let tf_con4 ()   = Array.map (fun (_, f, _) -> sum_f_cons4 f) data in
+  let tf_con4 ()   = Array.map (fun (_, f, _) -> sum_f_cons4 f) data in *)
   let tf_cogf ()   = Array.map (fun (_, f, _) -> sum_f_g f) data in
   let tf_cogc ()   = Array.map (fun (_, _, c) -> sum_f_g c) data in
   let native  = time "native" tn in
   let nat_con = time "nat cons" tn_cons in
-  let unsafe  = time "unsafe" tf_unsafe in
-  let safe    = time "safe" tf_safe in
-  let lacaml  = time "lacaml" tl_lacaml in
-  let constra = time "const" tf_cons in
-  let constr2 = time "const 2" tf_con2 in
-  let constr3 = time "const 3" tf_con3 in
-  let constr4 = time "const 4" tf_con4 in
+  (*let unsafe  = time "unsafe" tf_unsafe in
+  let constr4 = time "const 4" tf_con4 in *)
   let cons_gf = time "con gen f" tf_cogf in
   let cons_gc = time "con gen c" tf_cogc in
   Printf.printf "equal %b\n"
     (native = nat_con
-     && nat_con = unsafe
+     && nat_con = (*unsafe
      && unsafe = safe
      && safe = lacaml
      && lacaml = constra
      && constra = constr2
      && constr2 = constr3
      && constr3 = constr4
-     && constr4 = cons_gf
+     && constr4 = *)cons_gf
      && cons_gf = cons_gc
     )
 
