@@ -8,14 +8,6 @@ let () =
       | Before_options  -> ()
       | After_options   -> ()
       | Before_rules    -> ()
-      | After_rules     ->
-          begin
-            dep ["link";"ocaml";"use_fold"] ["src/lib/libfold.a"];
-            flag ["link";"ocaml";"byte";"use_fold"]
-              (S[A"-dllib";A"-lfold" ;A"-ccopt";A"-Lsrc/lib"     (* specify path to library *) ]);
-            flag ["link";"ocaml";"native";"use_fold"]
-              (S[A"-cclib";A"-lfold" ;A"-ccopt";A"-Lsrc/lib"     (* specify path to library *) ]);
-            flag ["ocaml"; "compile"; "native"] (S[A"-S"; ])
-          end
+      | After_rules     -> ()
   in
   dispatch additional_rules

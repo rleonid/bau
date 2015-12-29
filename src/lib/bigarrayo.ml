@@ -186,9 +186,9 @@ module GA = struct
      - Decide which functions to keep (probably not num_elements, apply)
      - Provide index checking
      - Write the Array1, Array2, Array3 specialized forms.
-*)
 external num_elements : ('a, 'b, 'c) Genarray.t -> int = "num_elements"
 external apply : ('a -> unit) -> ('a, 'b, 'c) Genarray.t -> int array -> unit = "apply"
 external iter : ('a -> unit) -> ('a, 'b, 'c) Genarray.t -> unit = "iter"
 external fold : ('d -> 'a -> 'd) -> 'd -> ('a, 'b, 'c) Genarray.t -> 'd = "fold"
+*)
 (*external iter_slice : ('a, 'b, 'c) Genarray.t -> ('a -> unit) -> int array -> unit = "iter_slice" *)

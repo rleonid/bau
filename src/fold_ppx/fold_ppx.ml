@@ -3,6 +3,7 @@ open Parsetree
 open Ast_mapper
 open Ast_helper
 
+open Printf
 open Bigarray
 
 (* Utilities *)
@@ -16,11 +17,56 @@ let split c s =
   in
   loop 0
 
+let location_error ?(sub=[]) ?(if_highlight="") loc msg =
+  raise Location.(Error { loc; msg; sub; if_highlight; })
+
 (* Bigarray specific transforms *)
+type kinds =
+  | Float32
+  | Float64
+  | Complex32
+  | Complex64
+  | Int8_signed
+  | Int8_unsigned
+  | Int16_signed
+  | Int16_unsigned
+  | Int32
+  | Int64
+  | Int
+  | Nativeint
+  | Char
+
+let parse_kind loc = function
+    | "float32"         -> Float32
+    | "float64"         -> Float64
+    | "complex32"       -> Complex32
+    | "complex64"       -> Complex64
+    | "int8_signed"     -> Int8_signed
+    | "int8_unsigned"   -> Int8_unsigned
+    | "int16_signed"    -> Int16_signed
+    | "int16_unsigned"  -> Int16_unsigned
+    | "int32"           -> Int32
+    | "int64"           -> Int64
+    | "int"             -> Int
+    | "nativeint"       -> Nativeint
+    | "char"            -> Char
+    | x                 ->
+      location_error loc (sprintf "unrecognized %s Bigarray kind" x)
 
 let kind_to_types = function
-  | Float64 -> "float", "float64_elt"
-  | _ -> failwith "NI"
+  | Float32         -> "float", "float32_elt"
+  | Float64         -> "float", "float64_elt"
+  | Int8_signed     -> "int", "int8_signed_elt"
+  | Int8_unsigned   -> "int", "int8_unsigned_elt"
+  | Int16_signed    -> "int", "int16_signed_elt"
+  | Int16_unsigned  -> "int", "int16_unsigned_elt"
+  | Int32           -> "int32", "int32_elt"
+  | Int64           -> "int64", "int64_elt"
+  | Int             -> "int", "int_elt"
+  | Nativeint       -> "nativeint", "nativeint_elt"
+  | Complex32       -> "Complex.t","complex32_elt"
+  | Complex64       -> "Complex.t","complex64_elt"
+  | Char            -> "char", "int8_unsigned_elt"
 
 type bigarray_layout =
   | Fortran_layout
@@ -139,16 +185,22 @@ let parse_payload = function
     Some (fun_exp, init, v)
   | _ -> None
 
-let parse txt payload fail =
+let transform loc txt payload fail =
   match parse_payload payload with
-  | None -> fail ()
+  | None   -> fail ()
   | Some t ->
     match split '.' txt with
-    | ["array1"; "fold_left"; "float64"] -> create_fold Float64 None t
-    | ["array1"; "fold_left"; "float64"; ls] ->
+    | ["array1"; "fold_left"; kind_str] ->
+      let kind = parse_kind loc kind_str in
+      create_fold kind None t
+    | ["array1"; "fold_left"; kind_str; ls] ->
+      begin
       match parse_layout_str ls with
-      | Some l -> create_fold Float64 None t
+      | Some l ->
+        let kind = parse_kind loc kind_str in
+        create_fold kind None t
       | None -> fail () (* TODO: change to explicit failure *)
+      end
     | _ -> fail ()
 
 let bigarray_fold_mapper argv =
@@ -156,46 +208,8 @@ let bigarray_fold_mapper argv =
     expr = fun mapper expr ->
       match expr with
       | { pexp_desc = Pexp_extension ({ txt }, PStr payload)} ->
-          parse txt payload (fun () -> default_mapper.expr mapper expr)
+          transform expr.pexp_loc txt payload (fun () -> default_mapper.expr mapper expr)
       | other -> default_mapper.expr mapper other; }
 
 let () =
   register "fold_ppx" bigarray_fold_mapper
-
-(*
-[%test (-) 3 4]
-==>
-{pexp_desc =
-  Pexp_extension
-   ({txt = "test"},
-    PStr
-     [{pstr_desc =
-        Pstr_eval
-         ({pexp_desc =
-            Pexp_apply ({pexp_desc = Pexp_ident {txt = Lident "-"}},
-             [("", {pexp_desc = Pexp_constant (Const_int 3)});
-              ("", {pexp_desc = Pexp_constant (Const_int 4)})])},
-         ...)}])}
-=========
-
-[%test (fun x -> x + 1) 3 4]
-==>
-{pexp_desc =
-  Pexp_extension
-   ({txt = "test"},
-    PStr
-     [{pstr_desc =
-        Pstr_eval
-         ({pexp_desc =
-            Pexp_apply
-             ({pexp_desc =
-                Pexp_fun ("", None, {ppat_desc = Ppat_var {txt = "x"}},
-                 {pexp_desc =
-                   Pexp_apply ({pexp_desc = Pexp_ident {txt = Lident "+"}},
-                    [("", {pexp_desc = Pexp_ident {txt = Lident "x"}});
-                     ("", {pexp_desc = Pexp_constant (Const_int 1)})])})},
-             [("", {pexp_desc = Pexp_constant (Const_int 3)});
-              ("", {pexp_desc = Pexp_constant (Const_int 4)})])},
-         ...)}])}
-
-   *)
