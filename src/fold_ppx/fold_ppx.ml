@@ -21,6 +21,8 @@ let location_error ?(sub=[]) ?(if_highlight="") loc msg =
   raise Location.(Error { loc; msg; sub; if_highlight; })
 
 (* Bigarray specific transforms *)
+(* Is there a better way to handle the GADT's in Bigarray that
+   represent this as opposed to redefining them? *)
 type kinds =
   | Float32
   | Float64
@@ -36,22 +38,25 @@ type kinds =
   | Nativeint
   | Char
 
-let parse_kind loc = function
-    | "float32"         -> Float32
-    | "float64"         -> Float64
-    | "complex32"       -> Complex32
-    | "complex64"       -> Complex64
-    | "int8_signed"     -> Int8_signed
-    | "int8_unsigned"   -> Int8_unsigned
-    | "int16_signed"    -> Int16_signed
-    | "int16_unsigned"  -> Int16_unsigned
-    | "int32"           -> Int32
-    | "int64"           -> Int64
-    | "int"             -> Int
-    | "nativeint"       -> Nativeint
-    | "char"            -> Char
-    | x                 ->
-      location_error loc (sprintf "unrecognized %s Bigarray kind" x)
+type bigarray_layout =
+  | Fortran_layout
+  | C_layout
+
+let parse_kind = function
+  | "float32"         -> Some Float32
+  | "float64"         -> Some Float64
+  | "complex32"       -> Some Complex32
+  | "complex64"       -> Some Complex64
+  | "int8_signed"     -> Some Int8_signed
+  | "int8_unsigned"   -> Some Int8_unsigned
+  | "int16_signed"    -> Some Int16_signed
+  | "int16_unsigned"  -> Some Int16_unsigned
+  | "int32"           -> Some Int32
+  | "int64"           -> Some Int64
+  | "int"             -> Some Int
+  | "nativeint"       -> Some Nativeint
+  | "char"            -> Some Char
+  | _                 -> None
 
 let kind_to_types = function
   | Float32         -> "float", "float32_elt"
@@ -67,10 +72,6 @@ let kind_to_types = function
   | Complex32       -> "Complex.t","complex32_elt"
   | Complex64       -> "Complex.t","complex64_elt"
   | Char            -> "char", "int8_unsigned_elt"
-
-type bigarray_layout =
-  | Fortran_layout
-  | C_layout
 
 let parse_layout_str = function
   | "fortran" -> Some Fortran_layout
@@ -97,8 +98,8 @@ let constrain_vec kind layout_s vec_var =
     (Typ.constr (lid "Array1.t")
        [ econstr t1; econstr t2; econstr layout_s])
 
-let make_fold_left kind layout_opt fold_var vec_var exp1 exp2 =
-  let to_body ls =  Exp.fun_ "" None (constrain_vec kind ls vec_var) exp1 in
+let make_fold kind layout_opt fold_var vec_var exp1 exp2 =
+  let to_body ls = Exp.fun_ "" None (constrain_vec kind ls vec_var) exp1 in
   let body =
     match layout_opt with
     | None    -> Exp.newtype "l" (to_body "l")
@@ -122,11 +123,15 @@ let assign_ref var val_exp =
 let get_array1 arr index =
   Exp.apply (ex_id "Array1.unsafe_get") [("", (ex_id arr)); ("", (ex_id index))]
 
-let apply_f fold_f var arr index =
-  Exp.apply fold_f [("", lookup_ref var); ("", get_array1 arr index)]
+let apply_f ~upto fold_f var arr index =
+  if upto
+  then Exp.apply fold_f [("", lookup_ref var); ("", get_array1 arr index)]
+  else Exp.apply fold_f [("", get_array1 arr index); ("", lookup_ref var)]
 
-let make_for_loop index start_exp end_exp body_exp =
-  Exp.for_ (Pat.var (to_str index)) start_exp end_exp Upto body_exp
+let make_for_loop index start_exp end_exp upto body_exp =
+  if upto
+  then Exp.for_ (Pat.var (to_str index)) start_exp end_exp Upto body_exp
+  else Exp.for_ (Pat.var (to_str index)) end_exp start_exp Downto body_exp
 
 let length_expr ~minus_one arr =
   if minus_one then
@@ -137,46 +142,55 @@ let length_expr ~minus_one arr =
     Exp.apply (ex_id "Array1.dim") ["",(ex_id arr)]
 
 (* Create a fast fold using a reference and for-loop. *)
-let create_fold kind layout (fun_exp, init, v) =
+let create_fold_w_layout (fun_exp, init, v) upto kind layout =
   let open Ast_helper in
-  match layout with
-  | Some l ->
-    let layouts, s, minus_one = layout_to_fold_parameters l in
-    make_fold_left kind (Some layouts) "fold_left" "a"
+  let layouts, s, minus_one = layout_to_fold_parameters layout in
+  let name = if upto then "fold_left" else "fold_right" in
+  make_fold kind (Some layouts) name "a"
+    (make_ref "r" init
+      (Exp.sequence
+        (make_for_loop "i"
+          (Exp.constant (Const_int s))
+          (length_expr ~minus_one "a")
+          upto
+          (assign_ref "r" (apply_f ~upto fun_exp "r" "a" "i")))
+        (lookup_ref "r")))
+    (Exp.apply (ex_id name) ["", v])
+
+(* Create a layout agnostic function. *)
+let create_fold (fun_exp, init, v) upto kind =
+  let name, name_f, name_c =
+    if upto
+    then "fold_left", "fold_left_fortran", "fold_left_c"
+    else "fold_right", "fold_right_fortran", "fold_right_c"
+  in
+  make_fold kind None name "b"
+    (let layouts, s, minus_one = layout_to_fold_parameters Fortran_layout in
+    make_fold kind (Some layouts) name_f "a"
       (make_ref "r" init
         (Exp.sequence
           (make_for_loop "i"
             (Exp.constant (Const_int s))
             (length_expr ~minus_one "a")
-            (assign_ref "r" (apply_f fun_exp "r" "a" "i")))
+            upto
+            (assign_ref "r" (apply_f ~upto fun_exp "r" "a" "i")))
           (lookup_ref "r")))
-      (Exp.apply (ex_id "fold_left") ["", v])
-  | None  ->  (* Create a layout agnostic function. *)
-    make_fold_left kind None "fold_left" "b"
-      (let layouts, s, minus_one = layout_to_fold_parameters Fortran_layout in
-      make_fold_left kind (Some layouts) "fold_left_fortran" "a"
-        (make_ref "r" init (
-          Exp.sequence
+      (let layouts, s, minus_one = layout_to_fold_parameters C_layout in
+      make_fold kind (Some layouts) name_c "a"
+        (make_ref "r" init
+          (Exp.sequence
             (make_for_loop "i"
               (Exp.constant (Const_int s))
               (length_expr ~minus_one "a")
-              (assign_ref "r" (apply_f fun_exp "r" "a" "i")))
+              upto
+              (assign_ref "r" (apply_f ~upto fun_exp "r" "a" "i")))
             (lookup_ref "r")))
-        (let layouts, s, minus_one = layout_to_fold_parameters C_layout in
-          make_fold_left kind (Some layouts) "fold_left_c" "a" (
-          make_ref "r" init (
-            Exp.sequence
-              (make_for_loop "i"
-                (Exp.constant (Const_int s))
-                (length_expr ~minus_one "a")
-                (assign_ref "r" (apply_f fun_exp "r" "a" "i")))
-              (lookup_ref "r")))
-            (Exp.match_ (Exp.apply (ex_id "Array1.layout") ["", (ex_id "b")])
-              [ Exp.case (Pat.construct (lid "Fortran_layout") None)
-                  (Exp.apply (ex_id "fold_left_fortran") ["", (ex_id "b")])
-              ; Exp.case (Pat.construct (lid "C_layout") None)
-                  (Exp.apply (ex_id "fold_left_c") ["", (ex_id "b")])])))
-      (Exp.apply (ex_id "fold_left") ["", v])
+          (Exp.match_ (Exp.apply (ex_id "Array1.layout") ["", (ex_id "b")])
+            [ Exp.case (Pat.construct (lid "Fortran_layout") None)
+                (Exp.apply (ex_id name_f) ["", (ex_id "b")])
+            ; Exp.case (Pat.construct (lid "C_layout") None)
+                (Exp.apply (ex_id name_c) ["", (ex_id "b")])])))
+    (Exp.apply (ex_id name) ["", v])
 
 let parse_payload = function
   | [{ pstr_desc = Pstr_eval
@@ -185,22 +199,34 @@ let parse_payload = function
     Some (fun_exp, init, v)
   | _ -> None
 
+let parse_fold = function
+  | "fold_left"  -> Some true
+  | "fold_right" -> Some false
+  | _            -> None
+
+let parse_command t fs ks ls_opt fail =
+  match parse_fold fs with
+  | None -> fail ()
+  | Some direction ->
+    match parse_kind ks with
+    | None -> fail ()
+    | Some kind ->
+      match ls_opt with
+      | None -> create_fold t direction kind
+      | Some ls ->
+        match parse_layout_str ls with
+        | None -> fail ()
+        | Some layout -> create_fold_w_layout t direction kind layout
+
 let transform loc txt payload fail =
   match parse_payload payload with
   | None   -> fail ()
   | Some t ->
     match split '.' txt with
-    | ["array1"; "fold_left"; kind_str] ->
-      let kind = parse_kind loc kind_str in
-      create_fold kind None t
-    | ["array1"; "fold_left"; kind_str; ls] ->
-      begin
-      match parse_layout_str ls with
-      | Some l ->
-        let kind = parse_kind loc kind_str in
-        create_fold kind None t
-      | None -> fail () (* TODO: change to explicit failure *)
-      end
+    | ["array1"; fold; kind] ->
+      parse_command t fold kind None fail
+    | ["array1"; fold; kind; ls] ->
+      parse_command t fold kind (Some ls) fail
     | _ -> fail ()
 
 let bigarray_fold_mapper argv =
