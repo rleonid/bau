@@ -30,7 +30,7 @@ let default_bound : type a b. (a, b) kind -> a = function
   | Nativeint       -> Nativeint.max_int
   | Int32           -> Int32.max_int
   | Int64           -> Int64.max_int
-  | Char            -> char_of_int 256
+  | Char            -> char_of_int 255
 
 (* Create a random generator.
    The values are bound by the [zero] of each kind and [bound] above
