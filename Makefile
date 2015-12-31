@@ -5,7 +5,7 @@ INSTALL_EXTS=$(LIB_EXTS) a o cmi cmo cmx so
 #	ocamlbuild -use-ocamlfind -pkg bigarray -I src bau.cmo bau.cma bau.cmxa bau.cmxs
 
 bau:
-	ocamlbuild -use-ocamlfind -pkg bigarray -I src/lib $(foreach e,$(LIB_EXTS),bau.$(e)) 
+	ocamlbuild -use-ocamlfind -pkg bigarray -I src/lib $(foreach e,$(LIB_EXTS),bau.$(e))
 
 bau_top:
 	ocamlbuild -use-ocamlfind -pkg bigarray -pkg compiler-libs -I src/lib $(foreach e,$(LIB_EXTS),bau_top.$(e))
