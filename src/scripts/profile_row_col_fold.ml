@@ -36,10 +36,11 @@ let fold_l stop f i =
   in
   loop 1 i
 
-let row_folds_f a f (i : float) =
+let row_folds_f (a : (float, float64_elt, fortran_layout) Array2.t)f (i : float) =
   let n = Array2.dim2 a in
   Array.init (Array2.dim1 a) (fun r ->
-      fold_l n (fun ac c -> f ac (Array2.get a (r + 1) c)) i)
+      fold_l n (fun ac c ->
+          f ac (Array2.unsafe_get a (r + 1) c)) i)
 
 module A2 = struct
   include Array2

@@ -28,7 +28,7 @@ profile:
 profile_int:
 	ocamlbuild -use-ocamlfind -pkgs bigarray,lacaml -I src/scripts/ profile_int.native
 
-profile_row:
+profile_row_col_fold:
 	ocamlbuild -use-ocamlfind -pkgs bigarray,lacaml -I src/scripts/ profile_row_col_fold.native
 
 profile_fold:
