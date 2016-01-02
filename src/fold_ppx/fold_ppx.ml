@@ -194,19 +194,26 @@ let create_fold (fun_exp, init, v) upto kind =
                 (Exp.apply (ex_id name_c) ["", (ex_id "b")])])))
     (Exp.apply (ex_id name) ["", v])
 
-let parse_payload = function
+let parse_payload loc ba_type f = function
   | [{ pstr_desc = Pstr_eval
         ({pexp_desc = Pexp_apply
               (fun_exp, [("", init); ("", v)]); _}, _); _ }] ->
-    Some (fun_exp, init, v)
-  | _ -> None
+    (fun_exp, init, v)
+  | [{ pstr_desc = Pstr_eval
+        ({pexp_desc = Pexp_apply
+              (fun_exp, [("", init); ]); _}, _); _ }] ->
+      location_error ~loc "Missing %s argument to %s" ba_type f
+  | [{ pstr_desc = Pstr_eval
+        ({pexp_desc = _}, _); _}] ->
+      location_error ~loc "Missing init and %s argument to %s" ba_type f
+  | _ -> location_error ~loc "Missing %s arguments" f
 
 let parse_fold = function
   | "fold_left"  -> Some true
   | "fold_right" -> Some false
   | _            -> None
 
-let parse_command loc t fs ks ls_opt =
+let parse loc fs ks ls_opt payload =
   match parse_fold fs with
   | None -> location_error ~loc "Unrecognized command: %s" fs
   | Some direction ->
@@ -214,22 +221,21 @@ let parse_command loc t fs ks ls_opt =
     | None -> location_error ~loc "Unrecognized kind: %s" ks
     | Some kind ->
       match ls_opt with
-      | None -> create_fold t direction kind
+      | None ->
+        let t = parse_payload loc "array1" fs payload in
+        create_fold t direction kind
       | Some ls ->
         match parse_layout_str ls with
         | None -> location_error ~loc "Unrecognized layout: %s" ls
-        | Some layout -> create_fold_w_layout t direction kind layout
+        | Some layout ->
+          let t = parse_payload loc "array1" fs payload in
+          create_fold_w_layout t direction kind layout
 
 let transform loc txt payload def =
-  match parse_payload payload with
-  | None   -> location_error ~loc "Missing function initial value and vector"
-  | Some t ->
-    match split '.' txt with
-    | ["array1"; fold; kind] ->
-      parse_command loc t fold kind None
-    | ["array1"; fold; kind; ls] ->
-      parse_command loc t fold kind (Some ls)
-    | _ -> def ()
+  match split '.' txt with
+  | ["array1"; fold; kind]     -> parse loc fold kind None payload
+  | ["array1"; fold; kind; ls] -> parse loc fold kind (Some ls) payload
+  | _ -> def ()
 
 let bigarray_fold_mapper argv =
   { default_mapper with
