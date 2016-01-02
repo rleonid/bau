@@ -17,8 +17,10 @@ let split c s =
   in
   loop 0
 
-let location_error ?(sub=[]) ?(if_highlight="") loc msg =
-  raise Location.(Error { loc; msg; sub; if_highlight; })
+let location_error ?(sub=[]) ?(if_highlight="") ~loc fmt =
+  Printf.ksprintf (fun msg ->
+    raise Location.(Error { loc; msg; sub; if_highlight; }))
+    fmt
 
 (* Bigarray specific transforms *)
 (* Is there a better way to handle the GADT's in Bigarray that
@@ -204,30 +206,30 @@ let parse_fold = function
   | "fold_right" -> Some false
   | _            -> None
 
-let parse_command t fs ks ls_opt fail =
+let parse_command loc t fs ks ls_opt =
   match parse_fold fs with
-  | None -> fail ()
+  | None -> location_error ~loc "Unrecognized command: %s" fs
   | Some direction ->
     match parse_kind ks with
-    | None -> fail ()
+    | None -> location_error ~loc "Unrecognized kind: %s" ks
     | Some kind ->
       match ls_opt with
       | None -> create_fold t direction kind
       | Some ls ->
         match parse_layout_str ls with
-        | None -> fail ()
+        | None -> location_error ~loc "Unrecognized layout: %s" ls
         | Some layout -> create_fold_w_layout t direction kind layout
 
-let transform loc txt payload fail =
+let transform loc txt payload def =
   match parse_payload payload with
-  | None   -> fail ()
+  | None   -> location_error ~loc "Missing function initial value and vector"
   | Some t ->
     match split '.' txt with
     | ["array1"; fold; kind] ->
-      parse_command t fold kind None fail
+      parse_command loc t fold kind None
     | ["array1"; fold; kind; ls] ->
-      parse_command t fold kind (Some ls) fail
-    | _ -> fail ()
+      parse_command loc t fold kind (Some ls)
+    | _ -> def ()
 
 let bigarray_fold_mapper argv =
   { default_mapper with
