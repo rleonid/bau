@@ -100,14 +100,14 @@ let constrain_vec kind layout_s vec_var =
     (Typ.constr (lid "Array1.t")
        [ econstr t1; econstr t2; econstr layout_s])
 
-let make_fold kind layout_opt fold_var vec_var exp1 exp2 =
-  let to_body ls = Exp.fun_ "" None (constrain_vec kind ls vec_var) exp1 in
+let make_let ?layout ?(arg="a") kind fold_var exp1 app =
+  let to_body ls = Exp.fun_ "" None (constrain_vec kind ls arg) exp1 in
   let body =
-    match layout_opt with
+    match layout with
     | None    -> Exp.newtype "l" (to_body "l")
     | Some ls -> to_body ls
   in
-  Exp.let_ Nonrecursive [ Vb.mk (Pat.var (to_str fold_var)) body] exp2
+  Exp.let_ Nonrecursive [ Vb.mk (Pat.var (to_str fold_var)) body] app
 
 let make_ref var init exp =
   Exp.let_ Nonrecursive
@@ -125,10 +125,13 @@ let assign_ref var val_exp =
 let get_array1 arr index =
   Exp.apply (ex_id "Array1.unsafe_get") [("", (ex_id arr)); ("", (ex_id index))]
 
-let apply_f ~upto fold_f var arr index =
+let apply_f fold_f args =
+  Exp.apply fold_f (List.map (fun e -> "",e) args)
+
+(*let apply_f ~upto fold_f var arr index =
   if upto
   then Exp.apply fold_f [("", lookup_ref var); ("", get_array1 arr index)]
-  else Exp.apply fold_f [("", get_array1 arr index); ("", lookup_ref var)]
+  else Exp.apply fold_f [("", get_array1 arr index); ("", lookup_ref var)] *)
 
 let make_for_loop index start_exp end_exp upto body_exp =
   if upto
@@ -143,55 +146,70 @@ let length_expr ~minus_one arr =
   else
     Exp.apply (ex_id "Array1.dim") ["",(ex_id arr)]
 
-(* Create a fast fold using a reference and for-loop. *)
-let create_fold_w_layout (fun_exp, init, v) upto kind layout =
-  let open Ast_helper in
-  let layouts, s, minus_one = layout_to_fold_parameters layout in
-  let name = if upto then "fold_left" else "fold_right" in
-  make_fold kind (Some layouts) name "a"
-    (make_ref "r" init
-      (Exp.sequence
-        (make_for_loop "i"
-          (Exp.constant (Const_int s))
-          (length_expr ~minus_one "a")
-          upto
-          (assign_ref "r" (apply_f ~upto fun_exp "r" "a" "i")))
-        (lookup_ref "r")))
-    (Exp.apply (ex_id name) ["", v])
+type operation =
+  | Iter
+  | Fold of bool    (* upto ie fold_left *)
 
-(* Create a layout agnostic function. *)
-let create_fold (fun_exp, init, v) upto kind =
-  let name, name_f, name_c =
-    if upto
-    then "fold_left", "fold_left_fortran", "fold_left_c"
-    else "fold_right", "fold_right_fortran", "fold_right_c"
+let fold_apply_f ~upto fun_exp ~ref ~arr ~index =
+  if upto then
+    apply_f fun_exp [ lookup_ref ref; get_array1 arr index]
+  else
+    apply_f fun_exp [ get_array1 arr index; lookup_ref ref]
+
+let fold_body ?(vec_arg="a") ~upto ~start ~minus_one fun_exp init =
+  (make_ref "r" init
+     (Exp.sequence
+        (make_for_loop "i"
+          (Exp.constant (Const_int start))
+          (length_expr ~minus_one vec_arg)
+          upto
+          (assign_ref "r"
+            (fold_apply_f ~upto fun_exp ~ref:"r" ~arr:vec_arg ~index:"i")))
+        (lookup_ref "r")))
+
+let iter_body ?(vec_arg="a") ~upto ~start ~minus_one fun_exp =
+  make_for_loop "i"
+    (Exp.constant (Const_int start))
+    (length_expr ~minus_one vec_arg)
+    upto
+    (apply_f fun_exp [get_array1 vec_arg "i"])
+
+(* Create a fast iter/fold using a reference and for-loop. *)
+let create_layout_specific (f, init, v) op kind layout =
+  let open Ast_helper in
+  let layout, start, minus_one = layout_to_fold_parameters layout in
+    let name, body  =
+    match op with
+    | Iter       -> "iter",       iter_body ~upto:true  ~start ~minus_one f
+    | Fold true  -> "fold_left",  fold_body ~upto:true  ~start ~minus_one f init
+    | Fold false -> "fold_right", fold_body ~upto:false ~start ~minus_one f init
   in
-  make_fold kind None name "b"
-    (let layouts, s, minus_one = layout_to_fold_parameters Fortran_layout in
-    make_fold kind (Some layouts) name_f "a"
-      (make_ref "r" init
-        (Exp.sequence
-          (make_for_loop "i"
-            (Exp.constant (Const_int s))
-            (length_expr ~minus_one "a")
-            upto
-            (assign_ref "r" (apply_f ~upto fun_exp "r" "a" "i")))
-          (lookup_ref "r")))
-      (let layouts, s, minus_one = layout_to_fold_parameters C_layout in
-      make_fold kind (Some layouts) name_c "a"
-        (make_ref "r" init
-          (Exp.sequence
-            (make_for_loop "i"
-              (Exp.constant (Const_int s))
-              (length_expr ~minus_one "a")
-              upto
-              (assign_ref "r" (apply_f ~upto fun_exp "r" "a" "i")))
-            (lookup_ref "r")))
-          (Exp.match_ (Exp.apply (ex_id "Array1.layout") ["", (ex_id "b")])
-            [ Exp.case (Pat.construct (lid "Fortran_layout") None)
-                (Exp.apply (ex_id name_f) ["", (ex_id "b")])
-            ; Exp.case (Pat.construct (lid "C_layout") None)
-                (Exp.apply (ex_id name_c) ["", (ex_id "b")])])))
+  make_let ~layout kind name body (Exp.apply (ex_id name) ["", v])
+
+(* Create a layout agnostic fold/iter function. *)
+let create (fun_exp, init, v) op kind =
+  let name, name_f, name_c, to_body =
+    match op with
+    | Iter ->
+      "iter", "iter_fortran", "iter_c"
+      , (iter_body ~upto:true fun_exp)
+    | Fold true  ->
+      "fold_left", "fold_left_fortran", "fold_left_c"
+      , (fold_body ~upto:true fun_exp init)
+    | Fold false -> "fold_right", "fold_right_fortran", "fold_right_c"
+      , (fold_body ~upto:false fun_exp init)
+  in
+  make_let ~arg:"b" kind name
+    (let layout, start, minus_one = layout_to_fold_parameters Fortran_layout in
+    make_let ~layout kind name_f (to_body ~start ~minus_one)
+      (* intended variable masking *)
+      (let layout, start, minus_one = layout_to_fold_parameters C_layout in
+      make_let ~layout kind name_c (to_body ~start ~minus_one)
+        (Exp.match_ (Exp.apply (ex_id "Array1.layout") ["", (ex_id "b")])
+          [ Exp.case (Pat.construct (lid "Fortran_layout") None)
+              (Exp.apply (ex_id name_f) ["", (ex_id "b")])
+          ; Exp.case (Pat.construct (lid "C_layout") None)
+              (Exp.apply (ex_id name_c) ["", (ex_id "b")])])))
     (Exp.apply (ex_id name) ["", v])
 
 let parse_payload loc ba_type f = function
@@ -208,33 +226,34 @@ let parse_payload loc ba_type f = function
       location_error ~loc "Missing init and %s argument to %s" ba_type f
   | _ -> location_error ~loc "Missing %s arguments" f
 
-let parse_fold = function
-  | "fold_left"  -> Some true
-  | "fold_right" -> Some false
+let parse_operation = function
+  | "iter"       -> Some Iter
+  | "fold_left"  -> Some (Fold true)
+  | "fold_right" -> Some (Fold false)
   | _            -> None
 
-let parse loc fs ks ls_opt payload =
-  match parse_fold fs with
-  | None -> location_error ~loc "Unrecognized command: %s" fs
-  | Some direction ->
+let parse loc operation ks ls_opt payload =
+  match parse_operation operation with
+  | None -> location_error ~loc "Unrecognized command: %s" operation
+  | Some op ->
     match parse_kind ks with
     | None -> location_error ~loc "Unrecognized kind: %s" ks
     | Some kind ->
       match ls_opt with
       | None ->
-        let t = parse_payload loc "array1" fs payload in
-        create_fold t direction kind
+        let t = parse_payload loc "array1" operation payload in
+        create t op kind
       | Some ls ->
         match parse_layout_str ls with
         | None -> location_error ~loc "Unrecognized layout: %s" ls
         | Some layout ->
-          let t = parse_payload loc "array1" fs payload in
-          create_fold_w_layout t direction kind layout
+          let t = parse_payload loc "array1" operation payload in
+          create_layout_specific t op kind layout
 
 let transform loc txt payload def =
   match split '.' txt with
-  | ["array1"; fold; kind]     -> parse loc fold kind None payload
-  | ["array1"; fold; kind; ls] -> parse loc fold kind (Some ls) payload
+  | ["array1"; oper; kind]     -> parse loc oper kind None payload
+  | ["array1"; oper; kind; ls] -> parse loc oper kind (Some ls) payload
   | _ -> def ()
 
 let bigarray_fold_mapper argv =
