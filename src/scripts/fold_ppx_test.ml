@@ -58,6 +58,7 @@ let () =
   let per : type a b. string -> (a, b) pt -> unit =
     fun ks pt ->
       Printf.printf "over ---- %s ----\n" ks;
+      Gc.full_major ();
       let data = Array.init samples (fun _ -> generate pt.kind n) in
       let test name op = time name (fun () -> Array.map op data) in
       let native  = test "native" (fun (n,_,_) -> pt.sum_n n) in
