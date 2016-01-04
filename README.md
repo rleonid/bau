@@ -39,3 +39,20 @@ R1  945.573 -584.689 312.286  840.451 -84.8751;
 R2 -124.934  980.958 383.844 -290.605   53.375
 R3 -133.827  509.676 211.333   866.18 -767.171
 ```
+
+### Folds and Iter via PPX
+
+The `OCaml` compiler has built in primitives (see `caml_ba_ref_` in
+`bigarray.mli`) that can be used to index into a Bigarray faster if the full
+kind of the bigarray is known. To avoid repeated writing of the type
+signatures we use `ppx` to write an efficient `fold_left`, `fold_right` or
+`iter`:
+
+```OCaml
+let sum_b v = [%array1.fold_left.float64 (+.) 0. v]
+```
+
+See [fold_ppx_test.ml](src/scripts/fold_ppx_test.ml) for profile comparisons;
+in many cases these methods achieve better performance than using native OCaml
+arrays!
+.
