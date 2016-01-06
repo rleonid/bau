@@ -96,7 +96,7 @@ Typical performance results look like:
 The general syntax is
 
 ```OCaml
-[%bigarraytype.operation.kind(.layout)]
+[%bigarraytype.operation.kind(.layout) f (init) v]
 ```
 
   - `bigarraytype` - Currently only supports `"array1"`
@@ -117,3 +117,15 @@ The general syntax is
           `"char"`.
   - `layout` Optional but can be `"fortran"` or `"c"`. If left off `fold_ppx`
     will generate code that detects the layout and acts accordingly.
+
+  Arguments:
+  - `f` the `fold` or `iter` function to apply. If `v` has type
+    `(k,'b, 'c) Array1.t` then `f` should have types:
+      - `fold_left`  : `('a -> k -> 'a)`
+      - `fold_right` : `(k -> 'a -> 'a)` 
+      - `iter`       : `(k -> unit)`
+
+    Just like regular `Array` values
+
+  - `init` the initial value, only for folds
+  - `v` the `Array1`
