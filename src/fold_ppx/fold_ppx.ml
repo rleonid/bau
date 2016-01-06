@@ -131,7 +131,7 @@ let length_expr ~minus_one arr =
 
 type 'a  operation =
   | Iter of 'a * 'a               (* f and v *)
-  | Fold of (bool * 'a * 'a * 'a) (* upto ie fold_left, and exp f, init, v*)
+  | Fold of (bool * 'a * 'a * 'a) (* upto, f, init, v*)
 
 let fold_apply_f ~upto fun_exp ~ref ~arr ~index =
   if upto then
