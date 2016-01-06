@@ -1,7 +1,7 @@
 BigArray Utilities
 ------------------
 
-Some routines to make it easier to work with
+Some routines (a hodge-podge) to make it easier to work with
 [OCaml Bigarrays](http://caml.inria.fr/pub/docs/manual-ocaml/libref/Bigarray.html).
 
 ### Pretty printing
@@ -54,7 +54,7 @@ of the bigarray is known. To avoid repeated writing of the type signatures we us
 let sum_b v = [%array1.fold_left.float64 (+.) 0. v]
 ```
 
-A simple profiling program: [fold_ppx_prof.ml](src/scripts/fold_ppx_prof.ml)
+A simple profiling program: [`fold_ppx_prof.ml`](src/scripts/fold_ppx_prof.ml)
 compares three implementations of summing either a native array of floats or
 an `(float, float64, fortran_layout) Array1.t` :
 
@@ -129,3 +129,7 @@ The general syntax is
 
   - `init` the initial value, only for folds
   - `v` the `Array1`
+
+### Random generators
+
+[Generators](src/lib/generators.mli) to make it easier to create test Bigarrays.
