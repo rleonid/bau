@@ -6,14 +6,13 @@ let time s f =
   Printf.printf "%-10s:%f\n" s (Sys.time () -. n);
   r
 
-let generate ?(u=1e3) n m =
+let generate ?(u=1e3) n =
   let native =
     Array.init n (fun _ ->
-        Array.init m (fun _ ->
-            2.0 *. (Random.float u) -. u))
+      2.0 *. (Random.float u) -. u)
   in
-  let fl64for = Array2.of_array Float64 Fortran_layout native in
-  let fl64c = Array2.of_array Float64 C_layout native in
+  let fl64for = Array1.of_array Float64 Fortran_layout native in
+  let fl64c = Array1.of_array Float64 C_layout native in
   native, fl64for, fl64c
 
 let isf (type ll)(l : ll layout) =
@@ -23,104 +22,156 @@ let isf (type ll)(l : ll layout) =
 
 let to_offset l = if isf l then (fun i -> i + 1) else (fun i -> i)
 
-let foreach l n f =
-  if isf l then
-    for i = 1 to n do f i done
-  else
-    for i = 0 to n - 1 do f i done
+let a1_fold_left f i a =
+  let r = ref i in
+  for i = 1 to Array1.dim a do
+    r := f !r (Array1.unsafe_get a i)
+  done;
+  !r
 
-module A2 = struct
-  include Array2
+let a1_fold_left_safe f (i : float) a =
+  let r = ref i in
+  for i = 1 to Array1.dim a do
+    r := f !r (Array1.get a i)
+  done;
+  !r
 
-  let row_folds a f i =
-    let l = layout a in
-    let n = dim2 a in
-    let v = ref i in
-    let o = to_offset l in
-    Array.init (dim1 a) (fun r ->
-        v := i;
-        foreach l n (fun c -> v := f !v (unsafe_get a (o r) c));
-        !v)
-
-  let col_folds a f i =
-    let l = layout a in
-    let n = dim1 a in
-    let v = ref i in
-    let o = to_offset l in
-    Array.init (dim2 a) (fun c ->
-      v := i;
-      foreach l n (fun r -> v := f !v (unsafe_get a r (o c)));
-      !v)
-
-end
-
-let sum_rows_n = Array.map (Array.fold_left (+.) 0.)
-
-let sum_rows_b m = A2.row_folds m (+.) 0.0
-
-let sum_cols_n m =
-  let r = Array.make (Array.length m.(0)) 0.0 in
-  Array.iter (Array.iteri (fun i v -> r.(i) <- r.(i) +. v)) m;
-  r
-
-let sum_cols_b m = A2.col_folds m (+.) 0.0
+let sum_n = Array.fold_left (+.) 0.
+let sum_n_cons (a : float array) = Array.fold_left (+.) 0. a
+let sum_f_unsafe v = a1_fold_left (+.) 0. v
+let sum_f_safe v = a1_fold_left_safe (+.) 0. v
 
 open Lacaml.D
 
-let sum_cols_l m =
-  Array.init (A2.dim2 m) (fun i ->
-    let s = A2.slice_right m (i + 1) in
-    Vec.sum s)
+let sum_l v = Vec.sum v
 
-let test samples n m =
-  let data = Array.init samples (fun _ -> generate n m) in
-  let tn () = ignore (Array.map (fun (n, _, _) -> ignore (sum_rows_n n)) data) in
-  let tf () = ignore (Array.map (fun (_, f, _) -> ignore (sum_rows_b f)) data) in
-  let tc () = ignore (Array.map (fun (_, _, c) -> ignore (sum_rows_b c)) data) in
-  time "native" tn;
-  time "fortran" tf;
-  time "c" tc;
-  let tn () = ignore (Array.map (fun (n, _, _) -> ignore (sum_cols_n n)) data) in
-  let tf () = ignore (Array.map (fun (_, f, _) -> ignore (sum_cols_b f)) data) in
-  let tc () = ignore (Array.map (fun (_, _, c) -> ignore (sum_cols_b c)) data) in
-  let tl () = ignore (Array.map (fun (_, f, _) -> ignore (sum_cols_l f)) data) in
-  time "native" tn;
-  time "fortran" tf;
-  time "c" tc;
-  time "lacaml" tl
+let a1_fold_left_cons f i (a : vec) =
+  let r = ref i in
+  for i = 1 to Array1.dim a do
+    r := f !r (Array1.unsafe_get a i)
+  done;
+  !r
+
+let sum_f_cons = a1_fold_left_cons (+.) 0.
+
+(* The type must be constrained fully:
+  let a1_fold_left_cons2 (type l) f i (a : (float, float64_elt, l) Array1.t) =
+  doesn't work.  *)
+let a1_fold_left_cons2 f i (a : (float, float64_elt, fortran_layout) Array1.t) =
+  let r = ref i in
+  for i = 1 to Array1.dim a do
+    r := f !r (Array1.unsafe_get a i)
+  done;
+  !r
+
+let sum_f_cons2 = a1_fold_left_cons2 (+.) 0.
+
+let a1_fold_left_cons3_fortran f i (a : (float, float64_elt, fortran_layout) Array1.t) =
+  let r = ref i in
+  for i = 1 to Array1.dim a do
+    r := f !r (Array1.unsafe_get a i)
+  done;
+  !r
+
+let a1_fold_left_cons3_c f i (a : (float, float64_elt, c_layout) Array1.t) =
+  let r = ref i in
+  for i = 0 to Array1.dim a - 1 do
+    r := f !r (Array1.unsafe_get a i)
+  done;
+  !r
+
+(* Parameterized over layout but not kind and fast. *)
+let sum_f_cons3 (type l) (v : ('a, 'b, l) Array1.t) : float =
+  match Array1.layout v with
+  | Fortran_layout -> a1_fold_left_cons3_fortran (+.) 0. v
+  | C_layout       -> a1_fold_left_cons3_c (+.) 0. v
+
+(* Parameterized over kind but not layout and fast. *)
+let a1_fold_left_cons4_float64 f i (a : (float, float64_elt, fortran_layout) Array1.t) =
+  let r = ref i in
+  for i = 1 to Array1.dim a do
+    r := f !r (Array1.unsafe_get a i)
+  done;
+  !r
+
+let a1_fold_left_cons4_float32 f i (a : (float, float32_elt, fortran_layout) Array1.t) =
+  let r = ref i in
+  for i = 1 to Array1.dim a do
+    r := f !r (Array1.unsafe_get a i)
+  done;
+  !r
+
+let sum_f_cons4 (type a) (type b) (v : (a, b, fortran_layout) Array1.t) : float =
+  match Array1.kind v with
+  | Float64        -> a1_fold_left_cons4_float64 (+.) 0. v
+  | Float32        -> a1_fold_left_cons4_float32 (+.) 0. v
+  | _              -> failwith "NI"
+
+(* best we can do *)
+let a1_fold_left_gen (type l) f i (v : (float,float64_elt,l) Array1.t) =
+  match Array1.layout v with
+  | C_layout -> a1_fold_left_cons3_c f i v
+  | Fortran_layout -> a1_fold_left_cons3_fortran f i v
+
+(*
+  let s,e =
+    match Array1.layout v with
+    | C_layout -> 0, Array1.dim v - 1
+    | Fortran_layout -> 1, Array1.dim v
+  in
+  let r = ref i in
+  for i = s to e do r := f !r (Array1.unsafe_get v i) done;
+  !r
+*)
+
+let sum_f_g v = a1_fold_left_gen (+.) 0. v
+
+let test samples n =
+  let data         = Array.init samples (fun _ -> generate n) in
+  let tn ()        = Array.map (fun (n, _, _) -> sum_n n) data in
+  let tn_cons ()   = Array.map (fun (n, _, _) -> sum_n_cons n) data in
+  (*let tf_unsafe () = Array.map (fun (_, f, _) -> sum_f_unsafe f) data in
+  let tf_safe ()   = Array.map (fun (_, f, _) -> sum_f_safe f) data in
+  let tl_lacaml () = Array.map (fun (_, f, _) -> sum_l f) data in
+  let tf_cons ()   = Array.map (fun (_, f, _) -> sum_f_cons f) data in
+  let tf_con2 ()   = Array.map (fun (_, f, _) -> sum_f_cons2 f) data in
+  let tf_con3 ()   = Array.map (fun (_, _, c) -> sum_f_cons3 c) data in
+  let tf_con4 ()   = Array.map (fun (_, f, _) -> sum_f_cons4 f) data in *)
+  let tf_cogf ()   = Array.map (fun (_, f, _) -> sum_f_g f) data in
+  let tf_cogc ()   = Array.map (fun (_, _, c) -> sum_f_g c) data in
+  let native  = time "native" tn in
+  let nat_con = time "nat cons" tn_cons in
+  (*let unsafe  = time "unsafe" tf_unsafe in
+  let constr4 = time "const 4" tf_con4 in *)
+  let cons_gf = time "con gen f" tf_cogf in
+  let cons_gc = time "con gen c" tf_cogc in
+  Printf.printf "equal %b\n"
+    (native = nat_con
+     && nat_con = (*unsafe
+     && unsafe = safe
+     && safe = lacaml
+     && lacaml = constra
+     && constra = constr2
+     && constr2 = constr3
+     && constr3 = constr4
+     && constr4 = *)cons_gf
+     && cons_gf = cons_gc
+    )
 
 let () =
-  if not (!Sys.interactive) then
-    test (int_of_string Sys.argv.(1))
-         (int_of_string Sys.argv.(2))
-         (int_of_string Sys.argv.(3))
+  if not (!Sys.interactive) then begin
+    let runs, n  =
+      if Array.length Sys.argv < 3 then
+        10000, 40
+      else
+        int_of_string Sys.argv.(1)
+        , int_of_string Sys.argv.(2)
+    in
+    Printf.printf "%d runs of %d \n" runs n;
+    test runs n
+  end
 
-(* ocamlbuild -use-ocamlfind -package bigarray -pacakage lacaml -I src/scripts/ profile.native
+(* ocamlbuild -use-ocamlfind -package bigarray -package lacaml -I src/scripts/ profile.native
    Sample run:
-$ ./profile.native 10 3000 3000
-native    :0.407063
-fortran   :1.794288
-c         :3.703106
-native    :0.312351
-fortran   :3.426450
-c         :1.829178
-
-With Lacaml: ./profile.native 100 300 300
-native    :0.036494
-fortran   :0.289516
-c         :0.185806
-native    :0.044074
-fortran   :0.205087
-c         :0.266259
-lacaml    :0.016714  <--- best!
-
-./profile.native 10 3000 3000
-native    :0.377344
-fortran   :4.466229
-c         :2.012626
-native    :0.473492
-fortran   :2.073251
-c         :3.913682
-lacaml    :0.100399  <--- best!
 *)
 

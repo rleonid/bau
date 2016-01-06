@@ -1,6 +1,6 @@
 
 LIB_EXTS=cma cmxa cmxs
-INSTALL_EXTS=$(LIB_EXTS) a o cmi cmo cmx
+INSTALL_EXTS=$(LIB_EXTS) a o cmi cmo cmx so
 
 #	ocamlbuild -use-ocamlfind -pkg bigarray -I src bau.cmo bau.cma bau.cmxa bau.cmxs
 
@@ -22,5 +22,23 @@ clean:
 install:
 	ocamlfind install bau META $(foreach e,$(INSTALL_EXTS),_build/src/lib/*.$(e))
 		
+profile:
+	ocamlbuild -use-ocamlfind -pkgs bigarray,lacaml -I src/lib -I src/scripts/ profile.native
 
-#	ocamlfind install bau META \ _build/src/bau.a \ _build/src/bau.o \ _build/src/bau.cma \ _build/src/bau.cmxa \ _build/src/bau.cmxs \ _build/src/*.cmi \ _build/src/*.cmo \ _build/src/*.cmx
+profile_int:
+	ocamlbuild -use-ocamlfind -pkgs bigarray,lacaml -I src/scripts/ profile_int.native
+
+profile_row_col_fold:
+	ocamlbuild -use-ocamlfind -pkgs bigarray,lacaml -I src/scripts/ profile_row_col_fold.native
+
+profile_fold:
+	ocamlbuild -use-ocamlfind -pkgs bigarray,lacaml -I src/scripts/ -I src/lib profile_fold.native
+
+fold_ppx:
+	ocamlbuild -use-ocamlfind -pkgs compiler-libs.common -I +compiler-libs -I src/fold_ppx fold_ppx.byte
+
+fold_ppx_test: fold_ppx bau
+	ocamlbuild -use-ocamlfind -pkgs bigarray -tags "ppx(src/fold_ppx/fold_ppx.byte)" -I src/lib -I src/fold_ppx -I src/scripts -cflag -dsource fold_ppx_test.native
+
+fold_ppx_prof: fold_ppx bau
+	ocamlbuild -use-ocamlfind -pkgs bigarray -tags "ppx(src/fold_ppx/fold_ppx.byte)" -I src/lib -I src/fold_ppx -I src/scripts -cflag -dsource fold_ppx_prof.native

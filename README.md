@@ -39,3 +39,81 @@ R1  945.573 -584.689 312.286  840.451 -84.8751;
 R2 -124.934  980.958 383.844 -290.605   53.375
 R3 -133.827  509.676 211.333   866.18 -767.171
 ```
+
+### Folds and Iter via PPX
+
+#### Motivation
+
+The `OCaml` compiler has built in primitives (see `caml_ba_ref_` in
+`bigarray.mli`) that can be used to index into a Bigarray faster if the full
+[kind](http://caml.inria.fr/pub/docs/manual-ocaml/libref/Bigarray.html#TYPEkind)
+of the bigarray is known. To avoid repeated writing of the type signatures we use
+`ppx` to write an efficient `fold_left`, `fold_right` or `iter`:
+
+```OCaml
+let sum_b v = [%array1.fold_left.float64 (+.) 0. v]
+```
+
+A simple profiling program: [fold_ppx_prof.ml](src/scripts/fold_ppx_prof.ml)
+compares three implementations of summing either a native array of floats or
+an `(float, float64, fortran_layout) Array1.t` :
+
+1. Using native arrays.
+
+  ```OCaml
+  let sum_n (v : float array) = Array.fold_left (+.) 0. v
+  ```
+
+2. Without specifying the type of the `Array1.t`
+
+  ```OCaml
+  let sum_r v =
+    let r = ref 0. in
+    for i = 1 to Array1.dim v do
+      r := !r +. Array1.unsafe_get v i
+    done;
+    !r
+  ```
+
+3. Using the typed code generated via `fold_ppx`:
+
+  ```OCaml
+  let sum_f v = [%array1.fold_left.float64.fortran (+.) 0. v]
+  ```
+
+Typical performance results look like:
+
+  ```bash
+  $ ./fold_ppx_prof.native
+  10000 samples of 40
+  native                        :0.001807
+  regular fold                  :0.005426
+  created fold_ppx              :0.001455
+  ```
+
+#### Usage
+
+The general syntax is
+
+```OCaml
+[%bigarraytype.operation.kind(.layout)]
+```
+
+  - `bigarraytype` - Currently only supports `"array1"`
+  - `operation` - `"fold_left"`, `"fold_right"` or `"iter"`
+  - `kind` - One of:
+          `"float32"`,
+          `"float64"`,
+          `"complex32"`,
+          `"complex64"`,
+          `"int8_signed"`,
+          `"int8_unsigned"`,
+          `"int16_signed"`,
+          `"int16_unsigned"`,
+          `"int32"`,
+          `"int64"`,
+          `"int"`,
+          `"nativeint"`,
+          `"char"`.
+  - `layout` Optional but can be `"fortran"` or `"c"`. If left off `fold_ppx`
+    will generate code that detects the layout and acts accordingly.
