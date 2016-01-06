@@ -39,3 +39,6 @@ fold_ppx:
 
 fold_ppx_test: fold_ppx bau
 	ocamlbuild -use-ocamlfind -pkgs bigarray -tags "ppx(src/fold_ppx/fold_ppx.byte)" -I src/lib -I src/fold_ppx -I src/scripts -cflag -dsource fold_ppx_test.native
+
+fold_ppx_prof: fold_ppx bau
+	ocamlbuild -use-ocamlfind -pkgs bigarray -tags "ppx(src/fold_ppx/fold_ppx.byte)" -I src/lib -I src/fold_ppx -I src/scripts -cflag -dsource fold_ppx_prof.native
