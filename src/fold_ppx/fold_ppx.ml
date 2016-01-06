@@ -208,16 +208,19 @@ let parse_operation ~loc = function
   | operation    -> location_error ~loc "Unrecognized command: %s" operation
 
 let parse ?layout loc operation ks payload =
-  let op   = parse_operation ~loc operation in
-  let kind = parse_kind ~loc ks in
-  match layout with
-  | None ->
-    let t = parse_payload loc "array1" operation payload in
-    create t op kind
-  | Some ls ->
-    let layout = parse_layout_str ~loc ls in
-    let t = parse_payload loc "array1" operation payload in
-    create_layout_specific t op kind layout
+  try
+    let op   = parse_operation ~loc operation in
+    let kind = parse_kind ~loc ks in
+    match layout with
+    | None ->
+      let t = parse_payload loc "array1" operation payload in
+      create t op kind
+    | Some ls ->
+      let layout = parse_layout_str ~loc ls in
+      let t = parse_payload loc "array1" operation payload in
+      create_layout_specific t op kind layout
+  with Location.Error e ->
+    Exp.extension ~loc (extension_of_error e)
 
 let transform loc txt payload def =
   match split '.' txt with
@@ -225,7 +228,7 @@ let transform loc txt payload def =
   | ["array1"; oper; kind; layout] -> parse ~layout loc oper kind payload
   | _ -> def ()
 
-let bigarray_fold_mapper argv =
+let bigarray_fold_mapper _argv =
   { default_mapper with
     expr = fun mapper expr ->
       match expr with
@@ -234,4 +237,4 @@ let bigarray_fold_mapper argv =
       | other -> default_mapper.expr mapper other; }
 
 let () =
-  register "fold_ppx" bigarray_fold_mapper
+  run_main bigarray_fold_mapper
