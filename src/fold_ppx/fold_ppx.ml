@@ -129,9 +129,9 @@ let length_expr ~minus_one arr =
   else
     Exp.apply (ex_id "Array1.dim") ["",(ex_id arr)]
 
-type operation =
-  | Iter
-  | Fold of bool    (* upto ie fold_left *)
+type 'a  operation =
+  | Iter of 'a * 'a               (* f and v *)
+  | Fold of (bool * 'a * 'a * 'a) (* upto ie fold_left, and exp f, init, v*)
 
 let fold_apply_f ~upto fun_exp ~ref ~arr ~index =
   if upto then
@@ -157,21 +157,21 @@ let iter_body ?(vec_arg="a") ~upto ~start ~minus_one fun_exp =
     upto
     (apply_f fun_exp [get_array1 vec_arg "i"])
 
-let operation_to_name_n_body fun_exp init = function
-  | Iter       -> "iter",       (iter_body ~upto:true fun_exp)
-  | Fold true  -> "fold_left",  (fold_body ~upto:true fun_exp init)
-  | Fold false -> "fold_right", (fold_body ~upto:false fun_exp init)
+let operation_to_name_n_body = function
+  | Iter (f, v)              -> "iter",       (iter_body ~upto:true f),       v
+  | Fold (true, f, init, v)  -> "fold_left",  (fold_body ~upto:true f init),  v
+  | Fold (false, f, init, v) -> "fold_right", (fold_body ~upto:false f init), v
 
 (* Create a fast iter/fold using a reference and for-loop. *)
-let create_layout_specific (f, init, v) op kind layout =
+let create_layout_specific op kind layout =
   let open Ast_helper in
   let layout, start, minus_one = to_fold_params layout in
-  let name, body = operation_to_name_n_body f init op in
+  let name, body, v = operation_to_name_n_body op in
   make_let ~layout kind name (body ~start ~minus_one) (Exp.apply (ex_id name) ["", v])
 
 (* Create a layout agnostic fold/iter function. *)
-let create (fun_exp, init, v) op kind =
-  let name, body = operation_to_name_n_body fun_exp init op in
+let create op kind =
+  let name, body, v = operation_to_name_n_body op in
   let name_f = name ^ "_fortran" in
   let name_c = name ^ "_c" in
   make_let ~arg:"b" kind name
@@ -187,24 +187,48 @@ let create (fun_exp, init, v) op kind =
               (Exp.apply (ex_id name_c) ["", (ex_id "b")])])))
     (Exp.apply (ex_id name) ["", v])
 
-let parse_payload loc ba_type f = function
+let parse_payload_fold loc ba_type d = function
+  | [{ pstr_desc = Pstr_eval
+        ({pexp_desc = Pexp_apply
+              (fun_exp, [("", init); ("", v);(_,_w)]); _}, _); _ }] ->
+      location_error ~loc "Too many %s argument to fold" ba_type
   | [{ pstr_desc = Pstr_eval
         ({pexp_desc = Pexp_apply
               (fun_exp, [("", init); ("", v)]); _}, _); _ }] ->
-    (fun_exp, init, v)
+      Fold (d, fun_exp, init, v)
   | [{ pstr_desc = Pstr_eval
         ({pexp_desc = Pexp_apply
               (fun_exp, [("", init); ]); _}, _); _ }] ->
-      location_error ~loc "Missing %s argument to %s" ba_type f
+      location_error ~loc "Missing %s argument to fold" ba_type
   | [{ pstr_desc = Pstr_eval
         ({pexp_desc = _}, _); _}] ->
-      location_error ~loc "Missing init and %s argument to %s" ba_type f
-  | _ -> location_error ~loc "Missing %s arguments" f
+      location_error ~loc "Missing init and %s argument to fold" ba_type
+  | _ ->
+      location_error ~loc "Missing fold arguments"
+
+let parse_payload_iter loc ba_type = function
+  | [{ pstr_desc = Pstr_eval
+        ({pexp_desc = Pexp_apply
+              (fun_exp, [("", v);(_,_w)]); _}, _); _ }] ->
+      location_error ~loc "Too many %s argument to iter" ba_type
+  | [{ pstr_desc = Pstr_eval
+        ({pexp_desc = Pexp_apply
+              (fun_exp, [("", v)]); _}, _); _ }] ->
+    Iter (fun_exp, v)
+  | [{ pstr_desc = Pstr_eval
+        ({pexp_desc = _}, _); _}] ->
+      location_error ~loc "Missing init and %s argument to iter" ba_type
+  | _ ->
+      location_error ~loc "Missing iter arguments"
+
+let parse_payload loc ba_type payload = function
+  | Iter ((), ())        -> parse_payload_iter loc ba_type payload
+  | Fold (d, (), (), ()) -> parse_payload_fold loc ba_type d payload
 
 let parse_operation ~loc = function
-  | "iter"       -> Iter
-  | "fold_left"  -> Fold true
-  | "fold_right" -> Fold false
+  | "iter"       -> Iter ((),())
+  | "fold_left"  -> Fold (true,(),(),())
+  | "fold_right" -> Fold (false,(),(),())
   | operation    -> location_error ~loc "Unrecognized command: %s" operation
 
 let parse ?layout loc operation ks payload =
@@ -213,12 +237,12 @@ let parse ?layout loc operation ks payload =
     let kind = parse_kind ~loc ks in
     match layout with
     | None ->
-      let t = parse_payload loc "array1" operation payload in
-      create t op kind
+      let ope = parse_payload loc "array1" payload op in
+      create ope kind
     | Some ls ->
       let layout = parse_layout_str ~loc ls in
-      let t = parse_payload loc "array1" operation payload in
-      create_layout_specific t op kind layout
+      let ope = parse_payload loc "array1" payload op in
+      create_layout_specific ope kind layout
   with Location.Error e ->
     Exp.extension ~loc (extension_of_error e)
 
