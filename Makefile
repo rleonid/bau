@@ -1,8 +1,21 @@
+# Copyright {2016} {Leonid Rozenberg}
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
 
 LIB_EXTS=cma cmxa cmxs
-INSTALL_EXTS=$(LIB_EXTS) a o cmi cmo cmx so
+INSTALL_EXTS=$(LIB_EXTS) a o cmi cmo cmx
 
-#	ocamlbuild -use-ocamlfind -pkg bigarray -I src bau.cmo bau.cma bau.cmxa bau.cmxs
+default: bau bau_top fold_ppx
 
 bau:
 	ocamlbuild -use-ocamlfind -pkg bigarray -I src/lib $(foreach e,$(LIB_EXTS),bau.$(e))
@@ -20,7 +33,8 @@ clean:
 	ocamlbuild -clean
 
 install:
-	ocamlfind install bau META $(foreach e,$(INSTALL_EXTS),_build/src/lib/*.$(e))
+	ocamlfind install bau META $(foreach e,$(INSTALL_EXTS),_build/src/lib/*.$(e)) \
+		_build/src/fold_ppx/fold_ppx.byte
 		
 profile:
 	ocamlbuild -use-ocamlfind -pkgs bigarray,lacaml -I src/lib -I src/scripts/ profile.native

@@ -8,7 +8,7 @@ homepage: "https://github.com/rleonid/bau/"
 dev-repo: "https://github.com/rleonid/bau.git"
 bug-reports: "https://github.com/rleonid/bau/issues"
 license: "Apache2"
-build: [make "bau" "bau_top"]
+build: [make]
 install: [make "install"]
 remove: ["ocamlfind" "remove" "bau"]
 depends: [

@@ -1,9 +1,10 @@
 description="Bigarray utils"
-requires=""
-version="0.0.0"
+version="0.0.1"
 directory="."
+ppx = "./fold_ppx.byte"
 archive(byte)="bau.cma"
 archive(native)="bau.cmxa"
+
 package "top" (
  description = "Install BaU pretty printers."
  archive(byte) = "bau_top.cma"
