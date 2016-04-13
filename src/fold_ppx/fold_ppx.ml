@@ -83,13 +83,11 @@ let to_fold_params = function
   | L C_layout       -> "c_layout", 0, true
 
 (* AST construction helpers *)
-let to_str ?(loc=Location.none) s = Location.mkloc s loc
+let to_str s = Location.mkloc s Location.none
 
-let lid ?(loc=Location.none) s =
-  Location.mkloc (Longident.parse s) loc
+let lid s = Location.mkloc (Longident.parse s) Location.none
 
-let ex_id ?(loc=Location.none) s =
-  Exp.ident (lid ~loc s)
+let ex_id s = Exp.ident (lid s)
 
 let constrain_vec kind layout_s vec_var =
   let t1, t2 = kind_to_types kind in
