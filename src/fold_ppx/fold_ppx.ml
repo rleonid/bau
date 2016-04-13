@@ -99,7 +99,7 @@ let constrain_vec kind layout_s vec_var =
        [ econstr t1; econstr t2; econstr layout_s])
 
 let make_let ?layout ?(arg="a") kind fold_var exp1 app =
-  let to_body ls = Exp.fun_ "" None (constrain_vec kind ls arg) exp1 in
+  let to_body ls = Exp.fun_ Nolabel None (constrain_vec kind ls arg) exp1 in
   let body =
     match layout with
     | None    -> Exp.newtype "l" (to_body "l")
@@ -110,21 +110,21 @@ let make_let ?layout ?(arg="a") kind fold_var exp1 app =
 let make_ref var init exp =
   Exp.let_ Nonrecursive
     [ Vb.mk (Pat.var (to_str var))
-        (Exp.apply (ex_id "ref") ["", init])]
+        (Exp.apply (ex_id "ref") [Nolabel, init])]
     exp
 
 let lookup_ref var =
-  Exp.apply (ex_id "!") ["", (ex_id var)]
+  Exp.apply (ex_id "!") [Nolabel, (ex_id var)]
 
 (* This is an operator! *)
 let assign_ref var val_exp =
-  Exp.apply (ex_id ":=") [("", (ex_id var)); ("", val_exp)]
+  Exp.apply (ex_id ":=") [(Nolabel, (ex_id var)); (Nolabel, val_exp)]
 
 let get_array1 arr index =
-  Exp.apply (ex_id "Array1.unsafe_get") [("", (ex_id arr)); ("", (ex_id index))]
+  Exp.apply (ex_id "Array1.unsafe_get") [(Nolabel, (ex_id arr)); (Nolabel, (ex_id index))]
 
 let apply_f fold_f args =
-  Exp.apply fold_f (List.map (fun e -> "",e) args)
+  Exp.apply fold_f (List.map (fun e -> Nolabel,e) args)
 
 (*let apply_f ~upto fold_f var arr index =
   if upto
@@ -136,13 +136,15 @@ let make_for_loop index start_exp end_exp upto body_exp =
   then Exp.for_ (Pat.var (to_str index)) start_exp end_exp Upto body_exp
   else Exp.for_ (Pat.var (to_str index)) end_exp start_exp Downto body_exp
 
+let const_int n = Pconst_integer (string_of_int n, None)
+
 let length_expr ~minus_one arr =
   if minus_one then
     Exp.apply (ex_id "-")
-      [ "", (Exp.apply (ex_id "Array1.dim") ["",(ex_id arr)])
-      ; "", (Exp.constant (Const_int 1))]
+      [ Nolabel, (Exp.apply (ex_id "Array1.dim") [Nolabel,(ex_id arr)])
+      ; Nolabel, (Exp.constant (const_int 1))]
   else
-    Exp.apply (ex_id "Array1.dim") ["",(ex_id arr)]
+    Exp.apply (ex_id "Array1.dim") [Nolabel, (ex_id arr)]
 
 type 'a  operation =
   | Iter of 'a * 'a               (* f and v *)
@@ -158,7 +160,7 @@ let fold_body ?(vec_arg="a") ~upto ~start ~minus_one fun_exp init =
   (make_ref "r" init
      (Exp.sequence
         (make_for_loop "i"
-          (Exp.constant (Const_int start))
+          (Exp.constant (const_int start))
           (length_expr ~minus_one vec_arg)
           upto
           (assign_ref "r"
@@ -167,7 +169,7 @@ let fold_body ?(vec_arg="a") ~upto ~start ~minus_one fun_exp init =
 
 let iter_body ?(vec_arg="a") ~upto ~start ~minus_one fun_exp =
   make_for_loop "i"
-    (Exp.constant (Const_int start))
+    (Exp.constant (const_int start))
     (length_expr ~minus_one vec_arg)
     upto
     (apply_f fun_exp [get_array1 vec_arg "i"])
@@ -182,7 +184,7 @@ let create_layout_specific op kind layout =
   let open Ast_helper in
   let layout, start, minus_one = to_fold_params layout in
   let name, body, v = operation_to_name_n_body op in
-  make_let ~layout kind name (body ~start ~minus_one) (Exp.apply (ex_id name) ["", v])
+  make_let ~layout kind name (body ~start ~minus_one) (Exp.apply (ex_id name) [Nolabel, v])
 
 (* Create a layout agnostic fold/iter function. *)
 let create op kind =
@@ -195,25 +197,25 @@ let create op kind =
       (* intended variable masking *)
       (let layout, start, minus_one = to_fold_params (L C_layout) in
       make_let ~layout kind name_c (body ~start ~minus_one)
-        (Exp.match_ (Exp.apply (ex_id "Array1.layout") ["", (ex_id "b")])
+        (Exp.match_ (Exp.apply (ex_id "Array1.layout") [Nolabel, (ex_id "b")])
           [ Exp.case (Pat.construct (lid "Fortran_layout") None)
-              (Exp.apply (ex_id name_f) ["", (ex_id "b")])
+              (Exp.apply (ex_id name_f) [Nolabel, (ex_id "b")])
           ; Exp.case (Pat.construct (lid "C_layout") None)
-              (Exp.apply (ex_id name_c) ["", (ex_id "b")])])))
-    (Exp.apply (ex_id name) ["", v])
+              (Exp.apply (ex_id name_c) [Nolabel, (ex_id "b")])])))
+    (Exp.apply (ex_id name) [Nolabel, v])
 
 let parse_payload_fold loc ba_type d = function
   | [{ pstr_desc = Pstr_eval
         ({pexp_desc = Pexp_apply
-              (fun_exp, [("", init); ("", v);(_,_w)]); _}, _); _ }] ->
+              (fun_exp, [(Nolabel, init); (Nolabel, v);(_,_w)]); _}, _); _ }] ->
       location_error ~loc "Too many %s argument to fold" ba_type
   | [{ pstr_desc = Pstr_eval
         ({pexp_desc = Pexp_apply
-              (fun_exp, [("", init); ("", v)]); _}, _); _ }] ->
+              (fun_exp, [(Nolabel, init); (Nolabel, v)]); _}, _); _ }] ->
       Fold (d, fun_exp, init, v)
   | [{ pstr_desc = Pstr_eval
         ({pexp_desc = Pexp_apply
-              (fun_exp, [("", init); ]); _}, _); _ }] ->
+              (fun_exp, [(Nolabel, init); ]); _}, _); _ }] ->
       location_error ~loc "Missing %s argument to fold" ba_type
   | [{ pstr_desc = Pstr_eval
         ({pexp_desc = _}, _); _}] ->
@@ -224,11 +226,11 @@ let parse_payload_fold loc ba_type d = function
 let parse_payload_iter loc ba_type = function
   | [{ pstr_desc = Pstr_eval
         ({pexp_desc = Pexp_apply
-              (fun_exp, [("", v);(_,_w)]); _}, _); _ }] ->
+              (fun_exp, [(Nolabel, v);(_,_w)]); _}, _); _ }] ->
       location_error ~loc "Too many %s argument to iter" ba_type
   | [{ pstr_desc = Pstr_eval
         ({pexp_desc = Pexp_apply
-              (fun_exp, [("", v)]); _}, _); _ }] ->
+              (fun_exp, [(Nolabel, v)]); _}, _); _ }] ->
     Iter (fun_exp, v)
   | [{ pstr_desc = Pstr_eval
         ({pexp_desc = _}, _); _}] ->
