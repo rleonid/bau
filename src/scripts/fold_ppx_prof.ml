@@ -21,7 +21,9 @@ let sum_r v =
   done;
   !r
 let sum_f v = [%array1.float64.fortran fold_left (+.) 0. v]
+let sum_fl v = [%array1.float64.fortran fold_left ~init:0. ~f:(+.) v]
 let sum_l v = [%array1.float64 fold_left (+.) 0. v]
+let sum_ll v = [%array1.float64 fold_left ~init:0. ~f:(+.) v]
 
 let () =
   let samples, n =
@@ -37,6 +39,8 @@ let () =
   let native  = test "native" (fun (n,_,_) -> sum_n n) in
   let regular = test "regular fold" (fun (_,f,_) -> sum_r f) in
   let typed   = test "created fold_ppx" (fun (_,f,_) -> sum_f f) in
+  let _       = test "created fold_ppx labeled" (fun (_,f,_) -> sum_fl f) in
   let wlayout = test "no layout" (fun (_,f,_) -> sum_l f) in
+  let _       = test "no layout labeled" (fun (_,f,_) -> sum_l f) in
   Printf.printf "equal %b\n"
     (native = regular && regular = typed && typed = wlayout)

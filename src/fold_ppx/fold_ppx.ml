@@ -201,24 +201,58 @@ let create op kind =
 
 let to_fs = function | true -> "fold_left" | false -> "fold_right"
 
-let parse_fold_args loc d = function
-  | [ (Nolabel, fun_exp)
-    ; (Nolabel, init_exp)
-    ; (Nolabel, array_exp)
-    ] -> Fold (d, fun_exp, init_exp, array_exp)
-  | [] | [_] | [_;_] ->
-      location_error ~loc "Missing %s arguments" (to_fs d)
-  | _ ->
-      location_error ~loc "Too many arguments to %s" (to_fs d)
+let parse_fold_args loc d lst =
+  match List.assoc (Labelled "f") lst with
+  | fun_exp ->
+      begin match List.assoc (Labelled "init") lst with
+      | init_exp ->
+          begin match List.assoc Nolabel lst with
+          | array_exp -> Fold (d, fun_exp, init_exp, array_exp)
+          | exception Not_found ->
+              location_error ~loc "Missing unlabeled array1 argument to %s."
+                (to_fs d)
+          end
+      | exception Not_found ->
+          location_error ~loc "Missing labeled init argument to %s." (to_fs d)
+      end
+  | exception Not_found ->
+      let n = List.length lst in
+      if n < 3 then
+        location_error ~loc "Missing %s arguments." (to_fs d)
+      else if n > 3 then
+        location_error ~loc "Too many arguments to %s." (to_fs d)
+      else
+        begin match lst with
+        | [ (Nolabel, fun_exp)
+          ; (Nolabel, init_exp)
+          ; (Nolabel, array_exp)
+          ] -> Fold (d, fun_exp, init_exp, array_exp)
+        | _ ->
+          location_error ~loc "Missing labeled f argument to %s." (to_fs d)
+        end
 
-let parse_iter_args loc = function
-  | [ (Nolabel, fun_exp)
-    ; (Nolabel, array_exp)
-    ] -> Iter (fun_exp, array_exp)
-  | [] | [_]  ->
-      location_error ~loc "Missing iter arguments"
-  | _ ->
-      location_error ~loc "Too many argument to iter"
+let parse_iter_args loc lst =
+  match List.assoc (Labelled "f") lst with
+  | fun_exp ->
+      begin match List.assoc Nolabel lst with
+      | array_exp -> Iter (fun_exp, array_exp)
+      | exception Not_found ->
+          location_error ~loc "Missing unlabeled array1 argument to iter."
+      end
+  | exception Not_found  ->
+      let n = List.length lst in
+      if n < 2 then
+        location_error ~loc "Missing iter arguments"
+      else if n > 2 then
+        location_error ~loc "Too many argument to iter"
+      else
+        begin match lst with
+        | [ (Nolabel, fun_exp)
+          ; (Nolabel, array_exp)
+          ] -> Iter (fun_exp, array_exp)
+        | _ ->
+          location_error ~loc "Missing unlabeled \"f\" argument to iter."
+        end
 
 let parse_payload ~loc = function
   | [{pstr_desc =
