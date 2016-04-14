@@ -20,8 +20,8 @@ let sum_r v =
     r := !r +. Array1.unsafe_get v i
   done;
   !r
-let sum_f v = [%array1.fold_left.float64.fortran (+.) 0. v]
-let sum_l v = [%array1.fold_left.float64 (+.) 0. v]
+let sum_f v = [%array1.float64.fortran fold_left (+.) 0. v]
+let sum_l v = [%array1.float64 fold_left (+.) 0. v]
 
 let () =
   let samples, n =
