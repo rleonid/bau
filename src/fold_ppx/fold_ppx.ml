@@ -73,11 +73,6 @@ let kind_to_types = function
 
 type l = L : 'a layout -> l
 
-let parse_layout_str ~loc = function
-  | "fortran" -> L Fortran_layout
-  | "c"       -> L C_layout
-  | ls        -> location_error ~loc "Unrecognized layout: %s" ls
-
 let to_fold_params = function
   | L Fortran_layout -> "fortran_layout", 1, false
   | L C_layout       -> "c_layout", 0, true
@@ -144,9 +139,11 @@ let length_expr ~minus_one arr =
   else
     Exp.apply (ex_id "Array1.dim") [Nolabel, (ex_id arr)]
 
-type 'a  operation =
-  | Iter of 'a * 'a               (* f and v *)
-  | Fold of (bool * 'a * 'a * 'a) (* upto, f, init, v*)
+type e = Parsetree.expression
+
+type operation =
+  | Iter of e * e               (* f and v *)
+  | Fold of (bool * e * e * e)  (* upto, f, init, v*)
 
 let fold_apply_f ~upto fun_exp ~ref ~arr ~index =
   if upto then
@@ -202,69 +199,97 @@ let create op kind =
               (Exp.apply (ex_id name_c) [Nolabel, (ex_id "b")])])))
     (Exp.apply (ex_id name) [Nolabel, v])
 
-let parse_payload_fold loc ba_type d = function
-  | [{ pstr_desc = Pstr_eval
-        ({pexp_desc = Pexp_apply
-              (fun_exp, [(Nolabel, init); (Nolabel, v);(_,_w)]); _}, _); _ }] ->
-      location_error ~loc "Too many %s argument to fold" ba_type
-  | [{ pstr_desc = Pstr_eval
-        ({pexp_desc = Pexp_apply
-              (fun_exp, [(Nolabel, init); (Nolabel, v)]); _}, _); _ }] ->
-      Fold (d, fun_exp, init, v)
-  | [{ pstr_desc = Pstr_eval
-        ({pexp_desc = Pexp_apply
-              (fun_exp, [(Nolabel, init); ]); _}, _); _ }] ->
-      location_error ~loc "Missing %s argument to fold" ba_type
-  | [{ pstr_desc = Pstr_eval
-        ({pexp_desc = _}, _); _}] ->
-      location_error ~loc "Missing init and %s argument to fold" ba_type
-  | _ ->
-      location_error ~loc "Missing fold arguments"
+let to_fs = function | true -> "fold_left" | false -> "fold_right"
 
-let parse_payload_iter loc ba_type = function
-  | [{ pstr_desc = Pstr_eval
-        ({pexp_desc = Pexp_apply
-              (fun_exp, [(Nolabel, v);(_,_w)]); _}, _); _ }] ->
-      location_error ~loc "Too many %s argument to iter" ba_type
-  | [{ pstr_desc = Pstr_eval
-        ({pexp_desc = Pexp_apply
-              (fun_exp, [(Nolabel, v)]); _}, _); _ }] ->
-    Iter (fun_exp, v)
-  | [{ pstr_desc = Pstr_eval
-        ({pexp_desc = _}, _); _}] ->
-      location_error ~loc "Missing init and %s argument to iter" ba_type
-  | _ ->
-      location_error ~loc "Missing iter arguments"
+let parse_fold_args loc d lst =
+  match List.assoc (Labelled "f") lst with
+  | fun_exp ->
+      begin match List.assoc (Labelled "init") lst with
+      | init_exp ->
+          begin match List.assoc Nolabel lst with
+          | array_exp -> Fold (d, fun_exp, init_exp, array_exp)
+          | exception Not_found ->
+              location_error ~loc "Missing unlabeled array1 argument to %s."
+                (to_fs d)
+          end
+      | exception Not_found ->
+          location_error ~loc "Missing labeled init argument to %s." (to_fs d)
+      end
+  | exception Not_found ->
+      let n = List.length lst in
+      if n < 3 then
+        location_error ~loc "Missing %s arguments." (to_fs d)
+      else if n > 3 then
+        location_error ~loc "Too many arguments to %s." (to_fs d)
+      else
+        begin match lst with
+        | [ (Nolabel, fun_exp)
+          ; (Nolabel, init_exp)
+          ; (Nolabel, array_exp)
+          ] -> Fold (d, fun_exp, init_exp, array_exp)
+        | _ ->
+          location_error ~loc "Missing labeled f argument to %s." (to_fs d)
+        end
 
-let parse_payload loc ba_type payload = function
-  | Iter ((), ())        -> parse_payload_iter loc ba_type payload
-  | Fold (d, (), (), ()) -> parse_payload_fold loc ba_type d payload
+let parse_iter_args loc lst =
+  match List.assoc (Labelled "f") lst with
+  | fun_exp ->
+      begin match List.assoc Nolabel lst with
+      | array_exp -> Iter (fun_exp, array_exp)
+      | exception Not_found ->
+          location_error ~loc "Missing unlabeled array1 argument to iter."
+      end
+  | exception Not_found  ->
+      let n = List.length lst in
+      if n < 2 then
+        location_error ~loc "Missing iter arguments"
+      else if n > 2 then
+        location_error ~loc "Too many argument to iter"
+      else
+        begin match lst with
+        | [ (Nolabel, fun_exp)
+          ; (Nolabel, array_exp)
+          ] -> Iter (fun_exp, array_exp)
+        | _ ->
+          location_error ~loc "Missing unlabeled \"f\" argument to iter."
+        end
 
-let parse_operation ~loc = function
-  | "iter"       -> Iter ((),())
-  | "fold_left"  -> Fold (true,(),(),())
-  | "fold_right" -> Fold (false,(),(),())
-  | operation    -> location_error ~loc "Unrecognized command: %s" operation
+let parse_payload ~loc = function
+  | [{pstr_desc =
+        Pstr_eval
+          ({pexp_desc =
+              Pexp_apply ({pexp_desc =
+                Pexp_ident {txt = Longident.Lident f}}, args)}, _)}] ->
+      begin match f with
+        | "fold_left"  -> parse_fold_args loc true args
+        | "fold_right" -> parse_fold_args loc false args
+        | "iter"       -> parse_iter_args loc args
+        | operation    -> location_error ~loc "Unrecognized command: %s" operation
+      end
+  | [] -> location_error ~loc "Missing fold_left, fold_right or iter invocation."
+  | _  -> location_error ~loc "Incorrect fold_left, fold_right or iter invocation."
 
-let parse ?layout loc operation ks payload =
+let parse_layout ~loc = function
+  | None            -> None
+  | Some "fortran"  -> Some (L Fortran_layout)
+  | Some "c"        -> Some (L C_layout)
+  | Some ls         -> location_error ~loc "Unrecognized layout: %s" ls
+
+let parse ?layout loc ~kind payload =
   try
-    let op   = parse_operation ~loc operation in
-    let kind = parse_kind ~loc ks in
-    match layout with
-    | None ->
-      let ope = parse_payload loc "array1" payload op in
-      create ope kind
-    | Some ls ->
-      let layout = parse_layout_str ~loc ls in
-      let ope = parse_payload loc "array1" payload op in
-      create_layout_specific ope kind layout
+    let kind   = parse_kind ~loc kind in
+    let op     = parse_payload ~loc payload in
+    match parse_layout ~loc layout with
+    | None   -> create op kind
+    | Some l -> create_layout_specific op kind l
   with Location.Error e ->
     Exp.extension ~loc (extension_of_error e)
 
+
 let transform loc txt payload def =
   match split '.' txt with
-  | ["array1"; oper; kind]         -> parse loc oper kind payload
-  | ["array1"; oper; kind; layout] -> parse ~layout loc oper kind payload
+  | ["array1"; kind]         -> parse loc ~kind payload
+  | ["array1"; kind; layout] -> parse ~layout loc ~kind payload
   | _ -> def ()
 
 let bigarray_fold_mapper _argv =
