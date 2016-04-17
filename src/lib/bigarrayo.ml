@@ -30,10 +30,6 @@ let foreach l n f =
   else
     for i = 0 to n - 1 do f i done
 
-(* Destructive substitution of modules isn't working out...
-    Probably hard to pull apart the dependency? for all the methods
-    that use Array1 explicitly.*)
-
 module A1 = struct
   include Array1
 
@@ -47,7 +43,7 @@ module A1 = struct
     let o = to_offset (layout a) in
     Array.init d (fun i -> f (unsafe_get a (o i)))
 
-  end
+end (* A1 *)
 
 module A2 = struct
   include Array2
@@ -85,9 +81,10 @@ module A2 = struct
     | Fortran_layout -> A1.init (kind m) l (dim2 m) (unsafe_get m i)
     | C_layout       -> A1.init (kind m) l (dim1 m) (fun j -> unsafe_get m j i)
 
-  end
+end (* A2 *)
 
 module A3 = struct
+
   include Array3
 
   let init k l d1 d2 d3 f =
@@ -127,7 +124,7 @@ module A3 = struct
     | C_layout       ->
       A2.init (kind m) l (dim1 m) (dim2 m) (fun j k -> unsafe_get m j k i)
 
-  end
+end (* A3 *)
 
 module GA = struct
   include Genarray
@@ -194,4 +191,5 @@ module GA = struct
         d.(nm1) <- i;
         let full idx = Array.blit idx 0 d 0 nm1; d in
         init (kind ga) l nd (fun idx -> get ga (full idx))
-  end
+
+end (* GA *)
