@@ -1,4 +1,4 @@
-open Bigarrayo
+open BigarrayExt
 
 let time s f =
   let n = Sys.time () in

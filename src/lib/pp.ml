@@ -43,8 +43,8 @@
 *)
 
 open Format
-open Bigarray
 open Complex
+open BigarrayExt
 
 let from_col_vec v = reshape_2 (genarray_of_array1 v) (Array1.dim v) 1
 let from_row_vec v = reshape_2 (genarray_of_array1 v) 1 (Array1.dim v)
@@ -274,7 +274,7 @@ let pp_mat_gen
                 set_labels ~src_r:array_start_idx ~dst_r:0;
                 if has_ver then
                   set_labels ~src_r:src_row_ofs ~dst_r:vertical_context;
-                let head0 = omap "" (fun f -> f m) label_corner in 
+                let head0 = omap "" (fun f -> f m) label_corner in
                 let foot0 = if pp_foot <> None then get_label (m + 1) else "" in
                 let max_len_row_labels = max (String.length head0)
                     !max_len_row_labels_ref in
@@ -845,25 +845,13 @@ module ThreeD = struct
     in
     loop 0
 
-  (* These 2 functions are replicated in Bigarrayo, but retained here until
-     that library is a bit more mature. We should remove these duplicates. *)
-  let cs (type l) (ar3 : ('a, 'b, l) Array3.t) i : ('a, 'b, l) Array2.t =
-    match Array3.layout ar3 with
-    | Fortran_layout -> Array3.slice_right_2 ar3 i
-    | C_layout       -> Array3.slice_left_2 ar3 i
-
-  let slices_indices (type l) (ar3 : ('a, 'b, l) Array3.t) =
-    match Array3.layout ar3 with
-    | Fortran_layout -> Array.init (Array3.dim3 ar3) (fun i -> i + 1)
-    | C_layout       -> Array.init (Array3.dim1 ar3) (fun i -> i)
-
   let gen_pp_ar3
     ?matrix_separator
     ?(ellipsis = !Context.ellipsis_default)
     ?(three_d_context = !Context.three_d_default)
     ?(width = !Context.width)
     pp_mat_to_buffer ppf ar3 =
-    let all = slices_indices ar3 in
+    let all = Array3.natural_slice_indices ar3 in
     let a_n = Array.length all in
     let disp_l, c = Context.get_disp a_n three_d_context in
     let sli =
@@ -885,11 +873,7 @@ module ThreeD = struct
           i, hs, List.rev printers
         else
           let (j,sep,sl) = sli.(i) in
-          let buf_j =
-            if new_row
-            then pp_mat_to_buffer ~new_row (cs ar3 j) j
-            else pp_mat_to_buffer ~new_row (cs ar3 j) j
-          in
+          let buf_j = pp_mat_to_buffer ~new_row (Array3.slice ar3 j) j in
           let wb, h, p = make_row_printers (Buffer.contents buf_j) in
           loop false (i + 1) (w + wb + sl) (h::hs) ((p, sep, sl) :: printers)
       in
@@ -902,13 +886,9 @@ module ThreeD = struct
       else
         let n_i, hs, printers = fill_width i in
         match hs with
-        | [] -> invalid_arg "bug"
-        | h :: t ->
-          if List.for_all ((=) h) t then
-            write_list buf h printers
-          else
-            invalid_arg "different heights";
-        loop n_i
+        | h :: t when List.for_all ((=) h) t -> write_list buf h printers; loop n_i
+        | [] -> invalid_arg "no heights supplied"
+        | _  -> invalid_arg "trying to print different heights"
     in
     loop 0
 
@@ -958,24 +938,24 @@ module Toplevel = struct
   let gen_pp_mat_sp label_corner left_label ppf mat =
     let pp_el = formatter_el (Array2.kind mat) in
     if left_label then
-      pp_mat_gen ~pp_head:pp_labeled_col ~pp_left:pp_labeled_row ?label_corner
+      pp_mat_gen ~pp_head:pp_labeled_col ?label_corner ~pp_left:pp_labeled_row
         pp_el ppf mat
     else
-      pp_mat_gen ~pp_head:pp_labeled_col ?label_corner
-        pp_el ppf mat
+      pp_mat_gen ~pp_head:pp_labeled_col ?label_corner pp_el ppf mat
 
+  (* General 2D *)
   let gen_pp_mat ppf mat = gen_pp_mat_sp None true ppf mat
 
-  (* Array3d  *)
-  let wrap_gen () =
-    (fun ~new_row m si ->
+  (* General 3D *)
+  let gen_pp_ar3 ppf ar3 =
+    let ppm ~new_row m si =
       let b = Buffer.create 32 in
       let label_corner = Some (fun _ -> string_of_int si) in
-      gen_pp_mat_sp label_corner new_row (Format.formatter_of_buffer b) m;
-      b)
-
-  let gen_pp_ar3 ppf ar3 =
-    let ppm = wrap_gen () in
+      let f = Format.formatter_of_buffer b in
+      gen_pp_mat_sp label_corner new_row f m;
+      pp_print_flush f ();
+      b
+    in
     ThreeD.gen_pp_ar3 ~matrix_separator:"; " ppm ppf ar3
 
   (* Genarray *)
@@ -986,6 +966,6 @@ module Toplevel = struct
     | 3 -> gen_pp_ar3 ppf (array3_of_genarray gen)
     | _ ->
       let l = Array.to_list (Genarray.dims gen) in
-      Format.fprintf  ppf "GA[%s]" (String.concat ";" (List.map string_of_int l))
+      Format.fprintf ppf "GA[%s]" (String.concat ";" (List.map string_of_int l))
 
 end

@@ -1,5 +1,7 @@
+#use "topfind"
+#require "bigarray"
 #directory "_build/src/lib"
 #load_rec "bau.cma"
-open Bigarrayo
+open BigarrayExt
 #use "src/scripts/install_printers.ml"
 #use "src/scripts/random_gen.ml"

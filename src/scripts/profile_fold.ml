@@ -1,4 +1,4 @@
-open Bigarrayo
+open BigarrayExt
 
 let time s f =
   let n = Sys.time () in
@@ -16,7 +16,7 @@ let generate ?(u=1e3) n m =
     native
     |> Array.to_list
     |> Array.concat
-    |> GA.of_array ~dims:[|n;m|] Float64 Fortran_layout
+    |> Genarray.of_array ~dims:[|n;m|] Float64 Fortran_layout
   in
   native, general
 
@@ -33,11 +33,11 @@ let sum_native arr =
 
 (* we have 2d's in Fortran style *)
 let sum_general_naive ga = 
-  let [| n; m |] = GA.dims ga in
+  let [| n; m |] = Genarray.dims ga in
   let s = ref 0.0 in
   for i = 1 to n do
     for j = 1 to m do
-      s := !s +. GA.get ga [| i; j |]
+      s := !s +. Genarray.get ga [| i; j |]
     done
   done;
   !s

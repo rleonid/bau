@@ -13,7 +13,7 @@
    limitations under the License.
 *)
 
-open Bigarrayo
+open BigarrayExt
 
 let int_kind : type a b. (a, b) kind -> bool = function
   | Float32         -> false
@@ -84,17 +84,17 @@ let random : type a b. ?bound:a -> (a, b) kind -> (unit -> a) =
 
 let array1 ?bound k l n =
   let re = random ?bound k in
-  A1.init k l n (fun _ -> re ())
+  Array1.init k l n (fun _ -> re ())
 
 let array2 ?bound k l n m =
   let re = random ?bound k in
-  A2.init k l n m (fun _ _ -> re ())
+  Array2.init k l n m (fun _ _ -> re ())
 
 let array3 ?bound k l n m o =
   let re = random ?bound k in
-  A3.init k l n m o (fun _ _ _ -> re ())
+  Array3.init k l n m o (fun _ _ _ -> re ())
 
 let general ?bound k l dims =
   let re = random ?bound k in
-  GA.init k l dims (fun _ -> re ())
+  Genarray.init k l dims (fun _ -> re ())
 

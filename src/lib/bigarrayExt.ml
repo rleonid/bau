@@ -13,7 +13,37 @@
    limitations under the License.
 *)
 
-include Bigarray
+include
+  (Bigarray : module type of Bigarray
+  (* Thanks to Gabriel Scherer for explaining how to do this correctly:
+    https://gitlab.com/gasche-snippets/overriding-bigarray-array1/blob/master/overriding_bigarray_array1.ml *)
+
+  (* manual strengthening: preserve equalities of all phantom types *)
+  with type float32_elt = Bigarray.float32_elt
+  and type float64_elt = Bigarray.float64_elt
+  and type int8_signed_elt = Bigarray.int8_signed_elt
+  and type int8_unsigned_elt = Bigarray.int8_unsigned_elt
+  and type int16_signed_elt = Bigarray.int16_signed_elt
+  and type int16_unsigned_elt = Bigarray.int16_unsigned_elt
+  and type int32_elt = Bigarray.int32_elt
+  and type int64_elt = Bigarray.int64_elt
+  and type int_elt = Bigarray.int_elt
+  and type nativeint_elt = Bigarray.nativeint_elt
+  and type complex32_elt = Bigarray.complex32_elt
+  and type complex64_elt = Bigarray.complex64_elt
+  and type c_layout = Bigarray.c_layout
+  and type fortran_layout = Bigarray.fortran_layout
+
+  (* manual strengthening: export equalities of GADTs *)
+  and type 'c layout = 'c Bigarray.layout
+  and type ('a, 'b) kind = ('a, 'b) Bigarray.kind
+
+  (* the signature is now strengthened,
+      and we can substitue modules with themselves *)
+  and module Array1 := Bigarray.Array1
+  and module Array2 := Bigarray.Array2
+  and module Array3 := Bigarray.Array3
+  and module Genarray := Bigarray.Genarray)
 
 let isf (type ll)(l : ll layout) =
   match l with
@@ -30,8 +60,8 @@ let foreach l n f =
   else
     for i = 0 to n - 1 do f i done
 
-module A1 = struct
-  include Array1
+module Array1 = struct
+  include Bigarray.Array1
 
   let init k l n f =
     let m = create k l n in
@@ -43,10 +73,10 @@ module A1 = struct
     let o = to_offset (layout a) in
     Array.init d (fun i -> f (unsafe_get a (o i)))
 
-end (* A1 *)
+end (* Array1 *)
 
-module A2 = struct
-  include Array2
+module Array2 = struct
+  include Bigarray.Array2
 
   let init k l d1 d2 f =
     let m = create k l d1 d2 in
@@ -69,23 +99,22 @@ module A2 = struct
     | C_layout       -> Array.init (dim1 m) (fun i -> i)
 
   (* Sequential access *)
-  let slice (type l) (m : ('a, 'b, l) t) i : ('a, 'b, l) A1.t =
+  let slice (type l) (m : ('a, 'b, l) t) i : ('a, 'b, l) Array1.t =
     match layout m with
     | Fortran_layout -> slice_right m i
     | C_layout       -> slice_left m i
 
   (* Nonsequential slicing, requires a copy. *)
-  let nonseq (type l) (m : ('a, 'b, l) t) i : ('a, 'b, l) A1.t =
+  let nonseq (type l) (m : ('a, 'b, l) t) i : ('a, 'b, l) Array1.t =
     let l = layout m in
     match l with
-    | Fortran_layout -> A1.init (kind m) l (dim2 m) (unsafe_get m i)
-    | C_layout       -> A1.init (kind m) l (dim1 m) (fun j -> unsafe_get m j i)
+    | Fortran_layout -> Array1.init (kind m) l (dim2 m) (unsafe_get m i)
+    | C_layout       -> Array1.init (kind m) l (dim1 m) (fun j -> unsafe_get m j i)
 
-end (* A2 *)
+end (* Array2 *)
 
-module A3 = struct
-
-  include Array3
+module Array3 = struct
+  include Bigarray.Array3
 
   let init k l d1 d2 d3 f =
     let m = create k l d1 d2 d3 in
@@ -110,24 +139,24 @@ module A3 = struct
     | Fortran_layout -> Array.init (dim3 ar3) (fun i -> i + 1)
     | C_layout       -> Array.init (dim1 ar3) (fun i -> i)
 
-  let slice (type l) (ar3 : ('a, 'b, l) t) i : ('a, 'b, l) A2.t =
+  let slice (type l) (ar3 : ('a, 'b, l) t) i : ('a, 'b, l) Array2.t =
     match layout ar3 with
     | Fortran_layout -> slice_right_2 ar3 i
     | C_layout       -> slice_left_2 ar3 i
 
   (* Nonsequential slicing, requires a copy. *)
-  let nonseq (type l) (m : ('a, 'b, l) t) i : ('a, 'b, l) A2.t =
+  let nonseq (type l) (m : ('a, 'b, l) t) i : ('a, 'b, l) Array2.t =
     let l = layout m in
     match l with
     | Fortran_layout ->
-      A2.init (kind m) l (dim2 m) (dim3 m) (unsafe_get m i)
+      Array2.init (kind m) l (dim2 m) (dim3 m) (unsafe_get m i)
     | C_layout       ->
-      A2.init (kind m) l (dim1 m) (dim2 m) (fun j k -> unsafe_get m j k i)
+      Array2.init (kind m) l (dim1 m) (dim2 m) (fun j k -> unsafe_get m j k i)
 
-end (* A3 *)
+end (* Array3 *)
 
-module GA = struct
-  include Genarray
+module Genarray = struct
+  include Bigarray.Genarray
 
   let foreachl dims isf f =
     let rec loop acc =
@@ -152,7 +181,7 @@ module GA = struct
 
   (* Seems like the natural thing to do. *)
   let of_array ?dims k l arr =
-    let ga = genarray_of_array1 (A1.of_array k l arr) in
+    let ga = genarray_of_array1 (Array1.of_array k l arr) in
     match dims with
     | None -> ga
     | Some dims -> reshape ga dims
@@ -160,7 +189,7 @@ module GA = struct
   let to_array ~f a =
     let d = dims a in
     let n = Array.fold_left ( * ) 1 d in
-    A1.to_array f (reshape_1 a n)
+    Array1.to_array f (reshape_1 a n)
 
   let natural_slice_indices (type l) (ga : ('a, 'b, l) t) =
     let d = dims ga in
@@ -192,4 +221,4 @@ module GA = struct
         let full idx = Array.blit idx 0 d 0 nm1; d in
         init (kind ga) l nd (fun idx -> get ga (full idx))
 
-end (* GA *)
+end (* Genarray *)

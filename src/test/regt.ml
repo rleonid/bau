@@ -1,6 +1,6 @@
 
 
-open Bigarrayo
+open BigarrayExt
 
 let test_size = 10
 let max_matrix_size = 10
@@ -9,10 +9,10 @@ let ms () = (Random.int max_matrix_size) + 1
 let rf () = Random.float 1.0
 
 let double_mat n m =
-  A2.init Float64 Fortran_layout n m (fun _ _ -> rf ())
+  Array2.init Float64 Fortran_layout n m (fun _ _ -> rf ())
 
 let complex_mat n m =
-  A2.init Complex64 Fortran_layout n m
+  Array2.init Complex64 Fortran_layout n m
     (fun _ _ -> {Complex.re = rf (); im = rf ()})
 
 let generate_test oc =

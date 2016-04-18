@@ -1,4 +1,5 @@
 
+open BigarrayExt
 open Generators
     
 let all_vecs layout ds =
