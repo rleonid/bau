@@ -43,8 +43,8 @@
 *)
 
 open Format
-open Bigarray
 open Complex
+open BigarrayExt
 
 let from_col_vec v = reshape_2 (genarray_of_array1 v) (Array1.dim v) 1
 let from_row_vec v = reshape_2 (genarray_of_array1 v) 1 (Array1.dim v)
@@ -845,25 +845,13 @@ module ThreeD = struct
     in
     loop 0
 
-  (* These 2 functions are replicated in Bigarrayo, but retained here until
-     that library is a bit more mature. We should remove these duplicates. *)
-  let cs (type l) (ar3 : ('a, 'b, l) Array3.t) i : ('a, 'b, l) Array2.t =
-    match Array3.layout ar3 with
-    | Fortran_layout -> Array3.slice_right_2 ar3 i
-    | C_layout       -> Array3.slice_left_2 ar3 i
-
-  let slices_indices (type l) (ar3 : ('a, 'b, l) Array3.t) =
-    match Array3.layout ar3 with
-    | Fortran_layout -> Array.init (Array3.dim3 ar3) (fun i -> i + 1)
-    | C_layout       -> Array.init (Array3.dim1 ar3) (fun i -> i)
-
   let gen_pp_ar3
     ?matrix_separator
     ?(ellipsis = !Context.ellipsis_default)
     ?(three_d_context = !Context.three_d_default)
     ?(width = !Context.width)
     pp_mat_to_buffer ppf ar3 =
-    let all = slices_indices ar3 in
+    let all = Array3.natural_slice_indices ar3 in
     let a_n = Array.length all in
     let disp_l, c = Context.get_disp a_n three_d_context in
     let sli =
@@ -887,8 +875,8 @@ module ThreeD = struct
           let (j,sep,sl) = sli.(i) in
           let buf_j =
             if new_row
-            then pp_mat_to_buffer ~new_row (cs ar3 j) j
-            else pp_mat_to_buffer ~new_row (cs ar3 j) j
+            then pp_mat_to_buffer ~new_row (Array3.slice ar3 j) j
+            else pp_mat_to_buffer ~new_row (Array3.slice ar3 j) j
           in
           let wb, h, p = make_row_printers (Buffer.contents buf_j) in
           loop false (i + 1) (w + wb + sl) (h::hs) ((p, sep, sl) :: printers)

@@ -42,7 +42,7 @@ let row_folds_f (a : (float, float64_elt, fortran_layout) Array2.t)f (i : float)
       fold_l n (fun ac c ->
           f ac (Array2.unsafe_get a (r + 1) c)) i)
 
-module A2 = struct
+module Array2 = struct
   include Array2
 
   let row_folds a f i =
@@ -75,7 +75,7 @@ let sum_rows_n = Array.map (Array.fold_left (+.) 0.)
 
 let sum_rows_n_cons (m : float array array) = Array.map (Array.fold_left (+.) 0.) m
 
-let sum_rows_b m = A2.row_folds m (+.) 0.0
+let sum_rows_b m = Array2.row_folds m (+.) 0.0
 let sum_rows_bf m = row_folds_f m (+.) 0.0
 
 let sum_cols_n m =
@@ -83,13 +83,13 @@ let sum_cols_n m =
   Array.iter (Array.iteri (fun i v -> r.(i) <- r.(i) +. v)) m;
   r
 
-let sum_cols_b m = A2.col_folds m (+.) 0.0
+let sum_cols_b m = Array2.col_folds m (+.) 0.0
 
 open Lacaml.D
 
 let sum_cols_l m =
-  Array.init (A2.dim2 m) (fun i ->
-    let s = A2.slice_right m (i + 1) in
+  Array.init (Array2.dim2 m) (fun i ->
+    let s = Array2.slice_right m (i + 1) in
     Vec.sum s)
 
 let all_equal lst =
