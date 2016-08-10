@@ -26,7 +26,7 @@ bau_top:
 #ocamlbuild -use-ocamlfind -pkg bigarray -I src -tag-line '<src/*/*.cmx> and not <src/bau_top.cm*> : for-pack(Bautop)' $(foreach e,$(LIB_EXTS),bautop.$(e))
 
 #regression test
-reg:
+regt:
 	ocamlbuild -use-ocamlfind -pkg bigarray -I src/lib -I src/test $(foreach e,$(LIB_EXTS),bau.$(e)) regt.native
 
 clean:
