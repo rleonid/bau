@@ -47,13 +47,13 @@ type ('a, 'b) pt =
 
 let () =
   let open Core_bench.Std in
-  let samples, n =
-    if Array.length Sys.argv < 3 then
+  let samples, n = 10000, 40 in
+    (*if Array.length Sys.argv < 3 then
       10000, 40
     else
       int_of_string Sys.argv.(1)
       , int_of_string Sys.argv.(2)
-  in
+  in*)
   Printf.printf "%d samples of %d \n" samples n;
   let per : type a b. string -> (a, b) pt -> Bench.Test.t =
     fun ks pt ->

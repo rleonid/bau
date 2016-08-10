@@ -9,4 +9,4 @@ echo Testing
 make regt fold_ppx_test
 
 ./regt.native
-./fold_ppx_test.native
+./fold_ppx_test.native -q 8
