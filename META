@@ -1,5 +1,5 @@
 description="Bigarray utils"
-version="0.0.2"
+version="0.0.3"
 directory="."
 ppx = "./fold_ppx.byte"
 archive(byte)="bau.cma"
