@@ -80,7 +80,7 @@ an `(float, float64, fortran_layout) Array1.t` :
 3. Using the typed code generated via `fold_ppx`:
 
   ```OCaml
-  let sum_f v = [%array1.fold_left.float64.fortran (+.) 0. v]
+  let sum_f v = [%array1.float64.fortran fold_left (+.) 0. v]
   ```
 
 Typical performance results look like:
