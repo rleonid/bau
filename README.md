@@ -53,7 +53,7 @@ of the bigarray is known. To avoid repeated writing of the type signatures we us
 `ppx` to write an efficient `fold_left`, `fold_right` or `iter`:
 
 ```OCaml
-let sum_b v = [%array1.fold_left.float64 (+.) 0. v]
+let sum_b v = [%array1.float64.fortran fold_left.float64 (+.) 0. v]
 ```
 
 A simple profiling program: [`fold_ppx_prof.ml`](src/scripts/fold_ppx_prof.ml)
