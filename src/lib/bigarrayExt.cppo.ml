@@ -49,20 +49,23 @@ include
   and module Array3 := Bigarray.Array3
   and module Genarray := Bigarray.Genarray)
 
-let isf (type ll)(l : ll layout) =
-  match l with
-  | Fortran_layout -> true
-  | C_layout       -> false
+module Layout = struct
 
-let to_offset : type a. a layout -> (int -> int) = function
-  | Fortran_layout -> (fun i -> i + 1)
-  | C_layout       -> (fun i -> i)
+  let is_fortran_layout (type ll)(l : ll layout) =
+    match l with
+    | Fortran_layout -> true
+    | C_layout       -> false
 
-let foreach l n f =
-  if isf l then
-    for i = 1 to n do f i done
-  else
-    for i = 0 to n - 1 do f i done
+  let to_offset : type a. a layout -> int = function
+    | Fortran_layout -> 1
+    | C_layout       -> 0
+
+  let foreach l n f =
+    if is_fortran_layout l then
+      for i = 1 to n do f i done
+    else
+      for i = 0 to n - 1 do f i done
+end
 
 #if OCAML_VERSION >= (4, 05, 0)
 module Array0 = struct
@@ -76,13 +79,13 @@ module Array1 = struct
 
   let init k l n f =
     let m = create k l n in
-    foreach l n (fun i -> set m i (f i));
+    Layout.foreach l n (fun i -> unsafe_set m i (f i));
     m
 
   let to_array ~f a =
     let d = dim a in
-    let o = to_offset (layout a) in
-    Array.init d (fun i -> f (unsafe_get a (o i)))
+    let o = Layout.to_offset (layout a) in
+    Array.init d (fun i -> f (unsafe_get a (o + i)))
 
 end (* Array1 *)
 
@@ -91,18 +94,18 @@ module Array2 = struct
 
   let init k l d1 d2 f =
     let m = create k l d1 d2 in
-    foreach l d1 (fun i ->
-      foreach l d2 (fun j ->
-        set m i j (f i j)));
+    Layout.foreach l d1 (fun i ->
+      Layout.foreach l d2 (fun j ->
+        unsafe_set m i j (f i j)));
     m
 
   let to_array ~f a =
     let d1 = dim1 a in
     let d2 = dim2 a in
-    let o = to_offset (layout a) in
+    let o = Layout.to_offset (layout a) in
     Array.init d1 (fun i ->
       Array.init d2 (fun j ->
-        f (unsafe_get a (o i) (o j))))
+        f (unsafe_get a (o + i) (o + j))))
 
   let natural_slice_indices (type l) (m : ('a, 'b, l) t) =
     match layout m with
@@ -129,21 +132,21 @@ module Array3 = struct
 
   let init k l d1 d2 d3 f =
     let m = create k l d1 d2 d3 in
-    foreach l d1 (fun i ->
-      foreach l d2 (fun j ->
-        foreach l d3 (fun k ->
-          set m i j k (f i j k))));
+    Layout.foreach l d1 (fun i ->
+      Layout.foreach l d2 (fun j ->
+        Layout.foreach l d3 (fun k ->
+          unsafe_set m i j k (f i j k))));
     m
 
   let to_array ~f a =
     let d1 = dim1 a in
     let d2 = dim2 a in
     let d3 = dim3 a in
-    let o = to_offset (layout a) in
+    let o = Layout.to_offset (layout a) in
     Array.init d1 (fun i ->
       Array.init d2 (fun j ->
         Array.init d3 (fun k ->
-          f (unsafe_get a (o i) (o j) (o k)))))
+          f (unsafe_get a (o + i) (o + j) (o + k)))))
 
   let natural_slice_indices (type l) (ar3 : ('a, 'b, l) t) =
     match layout ar3 with
@@ -169,25 +172,32 @@ end (* Array3 *)
 module Genarray = struct
   include Bigarray.Genarray
 
-  let foreachl dims isf f =
-    let rec loop acc =
-      function
-      | []      -> f (List.rev acc |> Array.of_list)
-      | h :: tl ->
-        if isf then
-          for i = 1 to h do
-            loop (i :: acc) tl
-          done
-        else
-          for i = 0 to h - 1 do
-            loop (i :: acc) tl
-          done
+  let foreachl dims l f =
+    let num_dimensions = Array.length dims in
+    let p = Array.fold_left ( * ) 1 dims in
+    let z = Layout.to_offset l in
+    let r = Array.make num_dimensions z in
+    let x = Array.map (fun d -> d - 1 + z) dims in
+    let succ () =
+      let rec loop j =
+        if j = num_dimensions then
+          ()
+        else if r.(j) = x.(j) then begin
+          r.(j) <- z;
+          loop (j + 1)
+        end else
+          r.(j) <- succ r.(j)
+      in
+      loop 0
     in
-    loop [] (Array.to_list dims)
+    for j = 0 to p - 1 do
+      let () = f r in
+      succ ()
+    done
 
   let init k l d f =
     let m = create k l d in
-    foreachl d (isf l) (fun arr -> set m arr (f arr));
+    foreachl d l (fun arr -> set m arr (f arr));
     m
 
   (* Seems like the natural thing to do. *)
