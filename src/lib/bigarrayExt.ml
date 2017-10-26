@@ -40,6 +40,7 @@ include
 
   (* the signature is now strengthened,
       and we can substitue modules with themselves *)
+  and module Array0 := Bigarray.Array0
   and module Array1 := Bigarray.Array1
   and module Array2 := Bigarray.Array2
   and module Array3 := Bigarray.Array3
@@ -59,6 +60,11 @@ let foreach l n f =
     for i = 1 to n do f i done
   else
     for i = 0 to n - 1 do f i done
+
+module Array0 = struct
+  include Bigarray.Array0
+
+end (* Array0 *)
 
 module Array1 = struct
   include Bigarray.Array1
