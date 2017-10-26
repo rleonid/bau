@@ -1,6 +1,6 @@
 
 eval `opam config env`
-opam install -y ocamlbuild core_bench
+opam install -y ocamlbuild cppo_ocamlbuild core_bench
 
 echo Compiling
 make

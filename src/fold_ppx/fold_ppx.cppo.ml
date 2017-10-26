@@ -95,7 +95,12 @@ let make_let ?layout ?(arg="a") kind fold_var exp1 app =
   let to_body ls = Exp.fun_ Nolabel None (constrain_vec kind ls arg) exp1 in
   let body =
     match layout with
+#if OCAML_VERSION >= (4, 05, 0)
+    | None    -> let loc = { exp1.pexp_loc with Location.loc_ghost = true } in
+                 Exp.newtype (Location.mkloc "l" loc) (to_body "l")
+#else
     | None    -> Exp.newtype "l" (to_body "l")
+#endif
     | Some ls -> to_body ls
   in
   Exp.let_ Nonrecursive [ Vb.mk (Pat.var (to_str fold_var)) body] app
