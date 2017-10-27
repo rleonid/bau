@@ -1,3 +1,7 @@
+Version 0.0.4 (2017-10-27):
+---------------------------
+  - Use cppo to support new Parsetree and Array0.
+
 Version 0.0.3 (2016-08-10):
 ---------------------------
   - Bigarrayo -> BigarrayExt. Pulls in all of the phantom types so that we

@@ -40,6 +40,10 @@ include
 
   (* the signature is now strengthened,
       and we can substitue modules with themselves *)
+
+#if OCAML_VERSION >= (4, 05, 0)
+  and module Array0 := Bigarray.Array0
+#endif
   and module Array1 := Bigarray.Array1
   and module Array2 := Bigarray.Array2
   and module Array3 := Bigarray.Array3
@@ -59,6 +63,13 @@ let foreach l n f =
     for i = 1 to n do f i done
   else
     for i = 0 to n - 1 do f i done
+
+#if OCAML_VERSION >= (4, 05, 0)
+module Array0 = struct
+  include Bigarray.Array0
+
+end (* Array0 *)
+#endif
 
 module Array1 = struct
   include Bigarray.Array1
