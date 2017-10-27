@@ -1,6 +1,6 @@
 opam-version: "1.2"
 name: "bau"
-version: "0.0.3"
+version: "0.0.4"
 available: [ ocaml-version >= "4.03.0" ]
 maintainer: "Leonid Rozenberg <leonidr@gmail.com>"
 authors: "Leonid Rozenberg <leonidr@gmail.com>"
