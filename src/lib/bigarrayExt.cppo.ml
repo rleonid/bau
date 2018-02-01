@@ -215,6 +215,77 @@ module Kind = struct
     | Complex64       -> Complex.one
     | Char            -> '\001'
 
+  (* These functions were also in extbigarray, but commented out.
+   * I've reviewed the implementation and corrected
+   * - the unsigned min values.
+   * - divided word_size by 8 bits -> bytes.
+   *)
+  let min_val : type o r. (o, r) kind -> o = function
+    | Float32         -> neg_infinity
+    | Float64         -> neg_infinity
+    | Int8_signed     -> ~-128
+    | Int8_unsigned   -> 0
+    | Int16_signed    -> ~-32768
+    | Int16_unsigned  -> 0
+    | Int             -> min_int
+    | Int32           -> Int32.min_int
+    | Int64           -> Int64.min_int
+    | Nativeint       -> Nativeint.min_int
+    | Complex32       -> invalid_arg "min_val of Complex32"
+    | Complex64       -> invalid_arg "min_val of Complex64"
+    | Char            -> '\000'
+
+  let max_val : type o r. (o, r) kind -> o = function
+    | Float32         -> infinity
+    | Float64         -> infinity
+    | Int8_signed     -> 127
+    | Int8_unsigned   -> 255
+    | Int16_signed    -> 32767
+    | Int16_unsigned  -> 65535
+    | Int             -> max_int
+    | Int32           -> Int32.max_int
+    | Int64           -> Int64.max_int
+    | Nativeint       -> Nativeint.max_int
+    | Complex32       -> invalid_arg "max_val of Complex32"
+    | Complex64       -> invalid_arg "max_val of Complex64"
+    | Char            -> '\255'
+
+  let bytes_per_element : type o r. (o, r) kind -> int = function
+    | Float32         -> 4
+    | Float64         -> 8
+    | Int8_signed     -> 1
+    | Int8_unsigned   -> 1
+    | Int16_signed    -> 2
+    | Int16_unsigned  -> 2
+    | Int             -> Sys.word_size / 8    (* word_size in bits *)
+    | Int32           -> 4
+    | Int64           -> 8
+    | Nativeint       -> Sys.word_size / 8
+    | Complex32       -> 8
+    | Complex64       -> 16
+    | Char            -> 1
+
+  let to_pp : type o r. (o, r) kind -> (Format.formatter -> o -> unit) = function
+    | Float32         -> Format.pp_print_float
+    | Float64         -> Format.pp_print_float
+    | Int8_signed     -> Format.pp_print_int
+    | Int8_unsigned   -> Format.pp_print_int
+    | Int16_signed    -> Format.pp_print_int
+    | Int16_unsigned  -> Format.pp_print_int
+    | Int             -> Format.pp_print_int
+    | Int32           -> fun fmt x -> Format.pp_print_string fmt (Int32.to_string x)
+    | Int64           -> fun fmt x -> Format.pp_print_string fmt (Int64.to_string x)
+    | Nativeint       -> fun fmt x -> Format.pp_print_string fmt (Nativeint.to_string x)
+    | Complex32       -> let pp_sep fmt () = Format.pp_print_char fmt ',' in
+                         fun fmt x ->
+                           Format.pp_print_list ~pp_sep Format.pp_print_float fmt
+                             Complex.[x.re; x.im]
+    | Complex64       -> let pp_sep fmt () = Format.pp_print_char fmt ',' in
+                         fun fmt x ->
+                           Format.pp_print_list ~pp_sep Format.pp_print_float fmt
+                             Complex.[x.re; x.im]
+    | Char            -> Format.pp_print_char
+
 end (* Kind *)
 
 #if OCAML_VERSION >= (4, 05, 0)
