@@ -51,21 +51,22 @@ include
 
 module Layout = struct
 
-  let is_fortran_layout (type ll)(l : ll layout) =
+  let is_fortran (type ll)(l : ll layout) =
     match l with
     | Fortran_layout -> true
     | C_layout       -> false
 
-  let to_offset : type a. a layout -> int = function
+  let offset : type a. a layout -> int = function
     | Fortran_layout -> 1
     | C_layout       -> 0
 
   let foreach l n f =
-    if is_fortran_layout l then
+    if is_fortran l then
       for i = 1 to n do f i done
     else
       for i = 0 to n - 1 do f i done
-end
+
+end (* Layout *)
 
 #if OCAML_VERSION >= (4, 05, 0)
 module Array0 = struct
@@ -84,7 +85,7 @@ module Array1 = struct
 
   let to_array ~f a =
     let d = dim a in
-    let o = Layout.to_offset (layout a) in
+    let o = Layout.offset (layout a) in
     Array.init d (fun i -> f (unsafe_get a (o + i)))
 
 end (* Array1 *)
@@ -102,7 +103,7 @@ module Array2 = struct
   let to_array ~f a =
     let d1 = dim1 a in
     let d2 = dim2 a in
-    let o = Layout.to_offset (layout a) in
+    let o = Layout.offset (layout a) in
     Array.init d1 (fun i ->
       Array.init d2 (fun j ->
         f (unsafe_get a (o + i) (o + j))))
@@ -142,7 +143,7 @@ module Array3 = struct
     let d1 = dim1 a in
     let d2 = dim2 a in
     let d3 = dim3 a in
-    let o = Layout.to_offset (layout a) in
+    let o = Layout.offset (layout a) in
     Array.init d1 (fun i ->
       Array.init d2 (fun j ->
         Array.init d3 (fun k ->
@@ -175,7 +176,7 @@ module Genarray = struct
   let foreachl dims l f =
     let num_dimensions = Array.length dims in
     let p = Array.fold_left ( * ) 1 dims in
-    let z = Layout.to_offset l in
+    let z = Layout.offset l in
     let r = Array.make num_dimensions z in
     let x = Array.map (fun d -> d - 1 + z) dims in
     let succ () =
