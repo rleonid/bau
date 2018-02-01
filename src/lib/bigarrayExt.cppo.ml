@@ -68,6 +68,155 @@ module Layout = struct
 
 end (* Layout *)
 
+module Kind = struct
+
+  (* This module is copied from
+   * https://github.com/hcarty/extbigarray/blob/master/src/extbigarray.ml
+   * Modifications:
+   * - aligned the arrows (stylistic nit)
+   * - reordered Int to be the other cases.
+   * - Added Char numerical methods (everything is done modulo 256).
+   *)
+
+  let to_char : type o r. (o, r) kind -> o -> char = function
+    | Float32         -> fun x -> char_of_int (int_of_float x)
+    | Float64         -> fun x -> char_of_int (int_of_float x)
+    | Int8_signed     -> char_of_int
+    | Int8_unsigned   -> char_of_int
+    | Int16_signed    -> char_of_int
+    | Int16_unsigned  -> char_of_int
+    | Int             -> char_of_int
+    | Int32           -> fun x -> char_of_int (Int32.to_int x)
+    | Int64           -> fun x -> char_of_int (Int64.to_int x)
+    | Nativeint       -> fun x -> char_of_int (Nativeint.to_int x)
+    | Complex32       -> fun { Complex.re; _ } -> char_of_int (int_of_float re)
+    | Complex64       -> fun { Complex.re; _ } -> char_of_int (int_of_float re)
+    | Char            -> fun x -> x
+
+  let of_char : type o r. (o, r) kind -> char -> o = function
+    | Float32         -> fun x -> float_of_int (int_of_char x)
+    | Float64         -> fun x -> float_of_int (int_of_char x)
+    | Int8_signed     -> int_of_char
+    | Int8_unsigned   -> int_of_char
+    | Int16_signed    -> int_of_char
+    | Int16_unsigned  -> int_of_char
+    | Int             -> int_of_char
+    | Int32           -> fun x -> Int32.of_int (int_of_char x)
+    | Int64           -> fun x -> Int64.of_int (int_of_char x)
+    | Nativeint       -> fun x -> Nativeint.of_int (int_of_char x)
+    | Complex32       -> fun x ->
+                          { Complex.re = float_of_int (int_of_char x); im = 0.0 }
+    | Complex64       -> fun x ->
+                          { Complex.re = float_of_int (int_of_char x); im = 0.0 }
+    | Char            -> fun x -> x
+
+  let to_add : type o r. (o, r) kind -> (o -> o -> o) = function
+    | Float32         -> ( +. )
+    | Float64         -> ( +. )
+    | Int8_signed     -> ( + )
+    | Int8_unsigned   -> ( + )
+    | Int16_signed    -> ( + )
+    | Int16_unsigned  -> ( + )
+    | Int             -> ( + )
+    | Int32           -> Int32.add
+    | Int64           -> Int64.add
+    | Nativeint       -> Nativeint.add
+    | Complex32       -> Complex.add
+    | Complex64       -> Complex.add
+    | Char            -> fun c1 c2 -> Char.(chr ((code c1) + (code c2) mod 256))
+
+  let to_sub : type o r. (o, r) kind -> (o -> o -> o) = function
+    | Float32         -> ( -. )
+    | Float64         -> ( -. )
+    | Int8_signed     -> ( - )
+    | Int8_unsigned   -> ( - )
+    | Int16_signed    -> ( - )
+    | Int16_unsigned  -> ( - )
+    | Int             -> ( - )
+    | Int32           -> Int32.sub
+    | Int64           -> Int64.sub
+    | Nativeint       -> Nativeint.sub
+    | Complex32       -> Complex.sub
+    | Complex64       -> Complex.sub
+    | Char            -> fun c1 c2 -> Char.(chr ((code c1) - (code c2) mod 256))
+
+  let to_mul : type o r. (o, r) kind -> (o -> o -> o) = function
+    | Float32         -> ( *. )
+    | Float64         -> ( *. )
+    | Int8_signed     -> ( * )
+    | Int8_unsigned   -> ( * )
+    | Int16_signed    -> ( * )
+    | Int16_unsigned  -> ( * )
+    | Int             -> ( * )
+    | Int32           -> Int32.mul
+    | Int64           -> Int64.mul
+    | Nativeint       -> Nativeint.mul
+    | Complex32       -> Complex.mul
+    | Complex64       -> Complex.mul
+    | Char            -> fun c1 c2 -> Char.(chr ((code c1) * (code c2) mod 256))
+
+  let to_div : type o r. (o, r) kind -> (o -> o -> o) = function
+    | Float32         -> ( /. )
+    | Float64         -> ( /. )
+    | Int8_signed     -> ( / )
+    | Int8_unsigned   -> ( / )
+    | Int16_signed    -> ( / )
+    | Int16_unsigned  -> ( / )
+    | Int             -> ( / )
+    | Int32           -> Int32.div
+    | Int64           -> Int64.div
+    | Nativeint       -> Nativeint.div
+    | Complex32       -> Complex.div
+    | Complex64       -> Complex.div
+    | Char            -> fun c1 c2 -> Char.(chr ((code c1) / (code c2) mod 256))
+
+  let to_neg : type o r. (o, r) kind -> (o -> o) = function
+    | Float32         -> ( ~-. )
+    | Float64         -> ( ~-. )
+    | Int8_signed     -> ( ~- )
+    | Int8_unsigned   -> ( ~- )
+    | Int16_signed    -> ( ~- )
+    | Int16_unsigned  -> ( ~- )
+    | Int             -> ( ~- )
+    | Int32           -> Int32.neg
+    | Int64           -> Int64.neg
+    | Nativeint       -> Nativeint.neg
+    | Complex32       -> Complex.neg
+    | Complex64       -> Complex.neg
+    | Char            -> fun c1 -> Char.(chr (-(code c1) mod 256))
+
+  let zero : type o r. (o, r) kind -> o = function
+    | Float32         -> 0.0
+    | Float64         -> 0.0
+    | Int8_signed     -> 0
+    | Int8_unsigned   -> 0
+    | Int16_signed    -> 0
+    | Int16_unsigned  -> 0
+    | Int             -> 0
+    | Int32           -> 0l
+    | Int64           -> 0L
+    | Nativeint       -> 0n
+    | Complex32       -> Complex.zero
+    | Complex64       -> Complex.zero
+    | Char            -> '\000'
+
+  let one : type o r. (o, r) kind -> o = function
+    | Float32         -> 1.0
+    | Float64         -> 1.0
+    | Int8_signed     -> 1
+    | Int8_unsigned   -> 1
+    | Int16_signed    -> 1
+    | Int16_unsigned  -> 1
+    | Int             -> 1
+    | Int32           -> 1l
+    | Int64           -> 1L
+    | Nativeint       -> 1n
+    | Complex32       -> Complex.one
+    | Complex64       -> Complex.one
+    | Char            -> '\001'
+
+end (* Kind *)
+
 #if OCAML_VERSION >= (4, 05, 0)
 module Array0 = struct
   include Bigarray.Array0
