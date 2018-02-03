@@ -1,0 +1,13 @@
+(jbuild_version 1)
+
+(library (
+  (name bau)
+  (public_name bau)
+  (synopsis "Big array utilities.")
+  (libraries (bigarray))
+  ))
+
+(rule
+ ((targets (bigarrayExt.ml))
+  (deps    (bigarrayExt.cppo.ml))
+  (action  (run ${bin:cppo} -V OCAML:${ocaml_version} ${<} -o ${@}))))
