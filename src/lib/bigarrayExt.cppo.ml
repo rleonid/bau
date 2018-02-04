@@ -295,6 +295,13 @@ module Array0 = struct
 end (* Array0 *)
 #endif
 
+#define monomorphic(kind,lowercase_kind)\
+  module kind = struct \
+    let fold_left ~f ~init v  = [%open1.lowercase_kind fold_left f init v] \
+    let fold_right ~f ~init v = [%open1.lowercase_kind fold_right f init v] \
+    let iter ~f v             = [%open1.lowercase_kind iter f v] \
+  end (* kind *)
+
 module Array1 = struct
   include Bigarray.Array1
 
@@ -307,6 +314,20 @@ module Array1 = struct
     let d = dim a in
     let o = Layout.offset (layout a) in
     Array.init d (fun i -> f (unsafe_get a (o + i)))
+
+  monomorphic(Float32,float32)
+  monomorphic(Float64,float64)
+  monomorphic(Int8_signed,int8_signed)
+  monomorphic(Int8_unsigned,int8_unsigned)
+  monomorphic(Int16_signed,int16_signed)
+  monomorphic(Int16_unsigned,int16_unsigned)
+  monomorphic(Int,int)
+  monomorphic(Int32,int32)
+  monomorphic(Int64,int64)
+  monomorphic(Nativeint,nativeint)
+  monomorphic(Complex32,complex32)
+  monomorphic(Complex64,complex64)
+  monomorphic(Char,char)
 
 end (* Array1 *)
 
