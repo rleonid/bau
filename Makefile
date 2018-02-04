@@ -12,46 +12,10 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-LIB_EXTS=cma cmxa cmxs
-INSTALL_EXTS=$(LIB_EXTS) a o cmi cmo cmx
-OCAMLBUILDP=-use-ocamlfind -plugin-tag 'package(cppo_ocamlbuild)' -pkg bigarray
-
-default: bau bau_top fold_ppx
+default: bau
 
 bau:
-	ocamlbuild $(OCAMLBUILDP) -I src/lib $(foreach e,$(LIB_EXTS),bau.$(e))
-
-bau_top:
-	ocamlbuild $(OCAMLBUILDP) -pkg compiler-libs -I src/lib $(foreach e,$(LIB_EXTS),bau_top.$(e))
-	
-#regression test
-regt:
-	ocamlbuild $(OCAMLBUILDP) -I src/lib -I src/test $(foreach e,$(LIB_EXTS),bau.$(e)) regt.native
+	jbuilder build
 
 clean:
-	ocamlbuild -clean
-
-install:
-	ocamlfind install bau META $(foreach e,$(INSTALL_EXTS),_build/src/lib/*.$(e)) \
-		_build/src/fold_ppx/fold_ppx.byte
-		
-profile:
-	ocamlbuild $(OCAMLBUILDP) -pkgs lacaml -I src/lib -I src/scripts/ profile.native
-
-profile_int:
-	ocamlbuild $(OCAMLBUILDP) -pkgs lacaml -I src/scripts/ profile_int.native
-
-profile_row_col_fold:
-	ocamlbuild $(OCAMLBUILDP) -pkgs lacaml -I src/scripts/ profile_row_col_fold.native
-
-profile_fold:
-	ocamlbuild $(OCAMLBUILDP) -pkgs lacaml -I src/scripts/ -I src/lib profile_fold.native
-
-fold_ppx:
-	ocamlbuild $(OCAMLBUILDP) -plugin-tag 'package(cppo_ocamlbuild)' -pkgs compiler-libs.common -I +compiler-libs -I src/fold_ppx fold_ppx.byte
-
-fold_ppx_test: fold_ppx bau
-	ocamlbuild $(OCAMLBUILDP) -pkgs core_bench -tag thread -tags "ppx(src/fold_ppx/fold_ppx.byte)" -I src/lib -I src/fold_ppx -I src/scripts -cflag -dsource fold_ppx_test.native
-
-fold_ppx_prof: fold_ppx bau
-	ocamlbuild $(OCAMLBUILDP) -tags "ppx(src/fold_ppx/fold_ppx.byte)" -I src/lib -I src/fold_ppx -I src/scripts -cflag -dsource fold_ppx_prof.native
+	jbuilder clean
