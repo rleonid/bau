@@ -299,15 +299,38 @@ end (* Array0 *)
   module kind = struct \
     let fold_left ~f ~init v  = [%open1.lowercase_kind fold_left f init v] \
     let fold_right ~f ~init v = [%open1.lowercase_kind fold_right f init v] \
+    let foldi ~f ~init v      = [%open1.lowercase_kind foldi_left f init v] \
+    let reduce_left ~f v      = [%open1.lowercase_kind reduce_left f v] \
+    let reduce_right ~f v     = [%open1.lowercase_kind reduce_right f v] \
+    let reducei ~f v          = [%open1.lowercase_kind reducei_left f v] \
     let iter ~f v             = [%open1.lowercase_kind iter f v] \
+    let iteri ~f v            = [%open1.lowercase_kind iteri f v] \
+    let modify ~f v           = [%open1.lowercase_kind modify f v] \
+    let modifyi ~f v          = [%open1.lowercase_kind modifyi f v] \
+    let init ~f l n = \
+      let v = create kind l n in \
+      modifyi ~f:(fun i _v -> f i) v; \
+      v \
+    let to_array v = \
+      let o = Layout.offset (layout v) in \
+      let a = Array.make (dim v) (unsafe_get v o) in \
+      iteri v ~f:(fun i x -> Array.unsafe_set a (i - o) x); \
+      a\
+    let of_array a l = \
+      let o = Layout.offset l in \
+      let n = Array.length a in \
+      init l n ~f:(fun i -> Array.unsafe_get a (i - o)) \
   end (* kind *)
 
 module Array1 = struct
   include Bigarray.Array1
 
+  (* We need to have a generic version for now to have non-sequential
+   * slicing, for Array2 (... and upwards).
+   * *)
   let init k l n f =
     let m = create k l n in
-    Layout.foreach l n (fun i -> unsafe_set m i (f i));
+    Layout.foreach l n (fun i -> set m i (f i));
     m
 
   let copy a =
@@ -320,19 +343,23 @@ module Array1 = struct
     let o = Layout.offset (layout a) in
     Array.init d (fun i -> f (unsafe_get a (o + i)))
 
-  monomorphic(Float32,float32)
-  monomorphic(Float64,float64)
-  monomorphic(Int8_signed,int8_signed)
-  monomorphic(Int8_unsigned,int8_unsigned)
-  monomorphic(Int16_signed,int16_signed)
-  monomorphic(Int16_unsigned,int16_unsigned)
-  monomorphic(Int,int)
-  monomorphic(Int32,int32)
-  monomorphic(Int64,int64)
-  monomorphic(Nativeint,nativeint)
-  monomorphic(Complex32,complex32)
-  monomorphic(Complex64,complex64)
-  monomorphic(Char,char)
+  module M = struct
+
+    monomorphic(Float32,float32)
+    monomorphic(Float64,float64)
+    monomorphic(Int8_signed,int8_signed)
+    monomorphic(Int8_unsigned,int8_unsigned)
+    monomorphic(Int16_signed,int16_signed)
+    monomorphic(Int16_unsigned,int16_unsigned)
+    monomorphic(Int,int)
+    monomorphic(Int32,int32)
+    monomorphic(Int64,int64)
+    monomorphic(Nativeint,nativeint)
+    monomorphic(Complex32,complex32)
+    monomorphic(Complex64,complex64)
+    monomorphic(Char,char)
+
+  end (* M *)
 
 end (* Array1 *)
 
