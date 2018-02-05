@@ -310,6 +310,11 @@ module Array1 = struct
     Layout.foreach l n (fun i -> unsafe_set m i (f i));
     m
 
+  let copy a =
+    let b = create (kind a) (layout a) (dim a) in
+    blit a b;
+    b
+
   let to_array ~f a =
     let d = dim a in
     let o = Layout.offset (layout a) in
