@@ -11,6 +11,8 @@ cache:
     - ${HOME}/.opam
 
 before_cache:
+  # Still a work in progress at the moment.
+  - ${HOME}/opam pin remove bigarray_fold_ppx
   # Remove the pin so that dependencies are not cached.
   - ${HOME}/opam pin remove bau
   - rm ${HOME}/.opam/log/*
