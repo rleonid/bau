@@ -5,6 +5,7 @@
   (public_name bau)
   (synopsis "Big array utilities.")
   (libraries (bigarray))
+  (flags -dsource)
   (preprocess (pps (bigarray_fold_ppx)))
   ))
 

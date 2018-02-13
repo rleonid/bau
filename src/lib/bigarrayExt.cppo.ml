@@ -295,6 +295,17 @@ module Array0 = struct
 end (* Array0 *)
 #endif
 
+#define dimorphic(kind1,lkind1,kind2,lkind2)\
+  module kind2 = struct \
+    let fold_left2 ~f ~init u v   = [%open1.lkind1.lkind2 fold_left2 f init u v] \
+    let fold_right2 ~f ~init u v  = [%open1.lkind1.lkind2 fold_right2 f init u v] \
+    let foldi2 ~f ~init u v       = [%open1.lkind1.lkind2 foldi_left2 f init u v] \
+    let iter2 ~f u v              = [%open1.lkind1.lkind2 iter2 f u v] \
+    let iteri2 ~f u v             = [%open1.lkind1.lkind2 iteri2 f u v] \
+    let map ~f u                  = [%open1.lkind1.lkind2 map f u] \
+    let mapi ~f u                 = [%open1.lkind1.lkind2 mapi f u ] \
+  end (* kind2 *)
+
 #define monomorphic(kind,lowercase_kind)\
   module kind = struct \
     let fold_left ~f ~init v  = [%open1.lowercase_kind fold_left f init v] \
@@ -308,7 +319,7 @@ end (* Array0 *)
     let modify ~f v           = [%open1.lowercase_kind modify f v] \
     let modifyi ~f v          = [%open1.lowercase_kind modifyi f v] \
     let init ~f l n = \
-      let v = create kind l n in \
+      let v = create lowercase_kind l n in \
       modifyi ~f:(fun i _v -> f i) v; \
       v \
     let to_array v = \
@@ -320,7 +331,22 @@ end (* Array0 *)
       let o = Layout.offset l in \
       let n = Array.length a in \
       init l n ~f:(fun i -> Array.unsafe_get a (i - o)) \
-  end (* kind *)
+    module M2 = struct \
+      dimorphic(kind,lowercase_kind,Float32,float32) \
+      dimorphic(kind,lowercase_kind,Float64,float64) \
+      dimorphic(kind,lowercase_kind,Int8_signed,int8_signed) \
+      dimorphic(kind,lowercase_kind,Int8_unsigned,int8_unsigned) \
+      dimorphic(kind,lowercase_kind,Int16_signed,int16_signed) \
+      dimorphic(kind,lowercase_kind,Int16_unsigned,int16_unsigned) \
+      dimorphic(kind,lowercase_kind,Int,int) \
+      dimorphic(kind,lowercase_kind,Int32,int32) \
+      dimorphic(kind,lowercase_kind,Int64,int64) \
+      dimorphic(kind,lowercase_kind,Nativeint,nativeint) \
+      dimorphic(kind,lowercase_kind,Complex32,complex32) \
+      dimorphic(kind,lowercase_kind,Complex64,complex64) \
+      dimorphic(kind,lowercase_kind,Char,char) \
+    end (* M2 *) \
+  end (* m *)
 
 module Array1 = struct
   include Bigarray.Array1
@@ -343,23 +369,19 @@ module Array1 = struct
     let o = Layout.offset (layout a) in
     Array.init d (fun i -> f (unsafe_get a (o + i)))
 
-  module M = struct
-
-    monomorphic(Float32,float32)
-    monomorphic(Float64,float64)
-    monomorphic(Int8_signed,int8_signed)
-    monomorphic(Int8_unsigned,int8_unsigned)
-    monomorphic(Int16_signed,int16_signed)
-    monomorphic(Int16_unsigned,int16_unsigned)
-    monomorphic(Int,int)
-    monomorphic(Int32,int32)
-    monomorphic(Int64,int64)
-    monomorphic(Nativeint,nativeint)
-    monomorphic(Complex32,complex32)
-    monomorphic(Complex64,complex64)
-    monomorphic(Char,char)
-
-  end (* M *)
+  monomorphic(Float32,float32)
+  monomorphic(Float64,float64)
+  monomorphic(Int8_signed,int8_signed)
+  monomorphic(Int8_unsigned,int8_unsigned)
+  monomorphic(Int16_signed,int16_signed)
+  monomorphic(Int16_unsigned,int16_unsigned)
+  monomorphic(Int,int)
+  monomorphic(Int32,int32)
+  monomorphic(Int64,int64)
+  monomorphic(Nativeint,nativeint)
+  monomorphic(Complex32,complex32)
+  monomorphic(Complex64,complex64)
+  monomorphic(Char,char)
 
 end (* Array1 *)
 
