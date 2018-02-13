@@ -331,21 +331,19 @@ end (* Array0 *)
       let o = Layout.offset l in \
       let n = Array.length a in \
       init l n ~f:(fun i -> Array.unsafe_get a (i - o)) \
-    module M2 = struct \
-      dimorphic(kind,lowercase_kind,Float32,float32) \
-      dimorphic(kind,lowercase_kind,Float64,float64) \
-      dimorphic(kind,lowercase_kind,Int8_signed,int8_signed) \
-      dimorphic(kind,lowercase_kind,Int8_unsigned,int8_unsigned) \
-      dimorphic(kind,lowercase_kind,Int16_signed,int16_signed) \
-      dimorphic(kind,lowercase_kind,Int16_unsigned,int16_unsigned) \
-      dimorphic(kind,lowercase_kind,Int,int) \
-      dimorphic(kind,lowercase_kind,Int32,int32) \
-      dimorphic(kind,lowercase_kind,Int64,int64) \
-      dimorphic(kind,lowercase_kind,Nativeint,nativeint) \
-      dimorphic(kind,lowercase_kind,Complex32,complex32) \
-      dimorphic(kind,lowercase_kind,Complex64,complex64) \
-      dimorphic(kind,lowercase_kind,Char,char) \
-    end (* M2 *) \
+    dimorphic(kind,lowercase_kind,Float32,float32) \
+    dimorphic(kind,lowercase_kind,Float64,float64) \
+    dimorphic(kind,lowercase_kind,Int8_signed,int8_signed) \
+    dimorphic(kind,lowercase_kind,Int8_unsigned,int8_unsigned) \
+    dimorphic(kind,lowercase_kind,Int16_signed,int16_signed) \
+    dimorphic(kind,lowercase_kind,Int16_unsigned,int16_unsigned) \
+    dimorphic(kind,lowercase_kind,Int,int) \
+    dimorphic(kind,lowercase_kind,Int32,int32) \
+    dimorphic(kind,lowercase_kind,Int64,int64) \
+    dimorphic(kind,lowercase_kind,Nativeint,nativeint) \
+    dimorphic(kind,lowercase_kind,Complex32,complex32) \
+    dimorphic(kind,lowercase_kind,Complex64,complex64) \
+    dimorphic(kind,lowercase_kind,Char,char) \
   end (* m *)
 
 module Array1 = struct
