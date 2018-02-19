@@ -11,6 +11,8 @@ cache:
     - ${HOME}/.opam
 
 before_cache:
+  # Still a work in progress at the moment.
+  - ${HOME}/opam pin remove bigarray_fold_ppx
   # Remove the pin so that dependencies are not cached.
   - ${HOME}/opam pin remove bau
   - rm ${HOME}/.opam/log/*
@@ -28,6 +30,7 @@ before_install:
 
 install:
   # Install dependencies
+  - ${HOME}/opam pin add -k git bigarray_fold_ppx https://github.com/rleonid/bigarray_fold_ppx.git
   - ${HOME}/opam pin add --no-action bau bau.opam
   - ${HOME}/opam install --deps-only bau
 

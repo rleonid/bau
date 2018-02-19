@@ -49,20 +49,244 @@ include
   and module Array3 := Bigarray.Array3
   and module Genarray := Bigarray.Genarray)
 
-let isf (type ll)(l : ll layout) =
-  match l with
-  | Fortran_layout -> true
-  | C_layout       -> false
+module Layout = struct
 
-let to_offset : type a. a layout -> (int -> int) = function
-  | Fortran_layout -> (fun i -> i + 1)
-  | C_layout       -> (fun i -> i)
+  let is_fortran (type ll)(l : ll layout) =
+    match l with
+    | Fortran_layout -> true
+    | C_layout       -> false
 
-let foreach l n f =
-  if isf l then
-    for i = 1 to n do f i done
-  else
-    for i = 0 to n - 1 do f i done
+  let offset : type a. a layout -> int = function
+    | Fortran_layout -> 1
+    | C_layout       -> 0
+
+  let foreach l n f =
+    if is_fortran l then
+      for i = 1 to n do f i done
+    else
+      for i = 0 to n - 1 do f i done
+
+end (* Layout *)
+
+module Kind = struct
+
+  (* This module is copied from
+   * https://github.com/hcarty/extbigarray/blob/master/src/extbigarray.ml
+   * Modifications:
+   * - aligned the arrows (stylistic nit)
+   * - reordered Int to be the other cases.
+   * - Added Char numerical methods (everything is done modulo 256).
+   *)
+
+  let to_char : type o r. (o, r) kind -> o -> char = function
+    | Float32         -> fun x -> char_of_int (int_of_float x)
+    | Float64         -> fun x -> char_of_int (int_of_float x)
+    | Int8_signed     -> char_of_int
+    | Int8_unsigned   -> char_of_int
+    | Int16_signed    -> char_of_int
+    | Int16_unsigned  -> char_of_int
+    | Int             -> char_of_int
+    | Int32           -> fun x -> char_of_int (Int32.to_int x)
+    | Int64           -> fun x -> char_of_int (Int64.to_int x)
+    | Nativeint       -> fun x -> char_of_int (Nativeint.to_int x)
+    | Complex32       -> fun { Complex.re; _ } -> char_of_int (int_of_float re)
+    | Complex64       -> fun { Complex.re; _ } -> char_of_int (int_of_float re)
+    | Char            -> fun x -> x
+
+  let of_char : type o r. (o, r) kind -> char -> o = function
+    | Float32         -> fun x -> float_of_int (int_of_char x)
+    | Float64         -> fun x -> float_of_int (int_of_char x)
+    | Int8_signed     -> int_of_char
+    | Int8_unsigned   -> int_of_char
+    | Int16_signed    -> int_of_char
+    | Int16_unsigned  -> int_of_char
+    | Int             -> int_of_char
+    | Int32           -> fun x -> Int32.of_int (int_of_char x)
+    | Int64           -> fun x -> Int64.of_int (int_of_char x)
+    | Nativeint       -> fun x -> Nativeint.of_int (int_of_char x)
+    | Complex32       -> fun x ->
+                          { Complex.re = float_of_int (int_of_char x); im = 0.0 }
+    | Complex64       -> fun x ->
+                          { Complex.re = float_of_int (int_of_char x); im = 0.0 }
+    | Char            -> fun x -> x
+
+  let to_add : type o r. (o, r) kind -> (o -> o -> o) = function
+    | Float32         -> ( +. )
+    | Float64         -> ( +. )
+    | Int8_signed     -> ( + )
+    | Int8_unsigned   -> ( + )
+    | Int16_signed    -> ( + )
+    | Int16_unsigned  -> ( + )
+    | Int             -> ( + )
+    | Int32           -> Int32.add
+    | Int64           -> Int64.add
+    | Nativeint       -> Nativeint.add
+    | Complex32       -> Complex.add
+    | Complex64       -> Complex.add
+    | Char            -> fun c1 c2 -> Char.(chr ((code c1) + (code c2) mod 256))
+
+  let to_sub : type o r. (o, r) kind -> (o -> o -> o) = function
+    | Float32         -> ( -. )
+    | Float64         -> ( -. )
+    | Int8_signed     -> ( - )
+    | Int8_unsigned   -> ( - )
+    | Int16_signed    -> ( - )
+    | Int16_unsigned  -> ( - )
+    | Int             -> ( - )
+    | Int32           -> Int32.sub
+    | Int64           -> Int64.sub
+    | Nativeint       -> Nativeint.sub
+    | Complex32       -> Complex.sub
+    | Complex64       -> Complex.sub
+    | Char            -> fun c1 c2 -> Char.(chr ((code c1) - (code c2) mod 256))
+
+  let to_mul : type o r. (o, r) kind -> (o -> o -> o) = function
+    | Float32         -> ( *. )
+    | Float64         -> ( *. )
+    | Int8_signed     -> ( * )
+    | Int8_unsigned   -> ( * )
+    | Int16_signed    -> ( * )
+    | Int16_unsigned  -> ( * )
+    | Int             -> ( * )
+    | Int32           -> Int32.mul
+    | Int64           -> Int64.mul
+    | Nativeint       -> Nativeint.mul
+    | Complex32       -> Complex.mul
+    | Complex64       -> Complex.mul
+    | Char            -> fun c1 c2 -> Char.(chr ((code c1) * (code c2) mod 256))
+
+  let to_div : type o r. (o, r) kind -> (o -> o -> o) = function
+    | Float32         -> ( /. )
+    | Float64         -> ( /. )
+    | Int8_signed     -> ( / )
+    | Int8_unsigned   -> ( / )
+    | Int16_signed    -> ( / )
+    | Int16_unsigned  -> ( / )
+    | Int             -> ( / )
+    | Int32           -> Int32.div
+    | Int64           -> Int64.div
+    | Nativeint       -> Nativeint.div
+    | Complex32       -> Complex.div
+    | Complex64       -> Complex.div
+    | Char            -> fun c1 c2 -> Char.(chr ((code c1) / (code c2) mod 256))
+
+  let to_neg : type o r. (o, r) kind -> (o -> o) = function
+    | Float32         -> ( ~-. )
+    | Float64         -> ( ~-. )
+    | Int8_signed     -> ( ~- )
+    | Int8_unsigned   -> ( ~- )
+    | Int16_signed    -> ( ~- )
+    | Int16_unsigned  -> ( ~- )
+    | Int             -> ( ~- )
+    | Int32           -> Int32.neg
+    | Int64           -> Int64.neg
+    | Nativeint       -> Nativeint.neg
+    | Complex32       -> Complex.neg
+    | Complex64       -> Complex.neg
+    | Char            -> fun c1 -> Char.(chr (-(code c1) mod 256))
+
+  let zero : type o r. (o, r) kind -> o = function
+    | Float32         -> 0.0
+    | Float64         -> 0.0
+    | Int8_signed     -> 0
+    | Int8_unsigned   -> 0
+    | Int16_signed    -> 0
+    | Int16_unsigned  -> 0
+    | Int             -> 0
+    | Int32           -> 0l
+    | Int64           -> 0L
+    | Nativeint       -> 0n
+    | Complex32       -> Complex.zero
+    | Complex64       -> Complex.zero
+    | Char            -> '\000'
+
+  let one : type o r. (o, r) kind -> o = function
+    | Float32         -> 1.0
+    | Float64         -> 1.0
+    | Int8_signed     -> 1
+    | Int8_unsigned   -> 1
+    | Int16_signed    -> 1
+    | Int16_unsigned  -> 1
+    | Int             -> 1
+    | Int32           -> 1l
+    | Int64           -> 1L
+    | Nativeint       -> 1n
+    | Complex32       -> Complex.one
+    | Complex64       -> Complex.one
+    | Char            -> '\001'
+
+  (* These functions were also in extbigarray, but commented out.
+   * I've reviewed the implementation and corrected
+   * - the unsigned min values.
+   * - divided word_size by 8 bits -> bytes.
+   *)
+  let min_val : type o r. (o, r) kind -> o = function
+    | Float32         -> neg_infinity
+    | Float64         -> neg_infinity
+    | Int8_signed     -> ~-128
+    | Int8_unsigned   -> 0
+    | Int16_signed    -> ~-32768
+    | Int16_unsigned  -> 0
+    | Int             -> min_int
+    | Int32           -> Int32.min_int
+    | Int64           -> Int64.min_int
+    | Nativeint       -> Nativeint.min_int
+    | Complex32       -> invalid_arg "min_val of Complex32"
+    | Complex64       -> invalid_arg "min_val of Complex64"
+    | Char            -> '\000'
+
+  let max_val : type o r. (o, r) kind -> o = function
+    | Float32         -> infinity
+    | Float64         -> infinity
+    | Int8_signed     -> 127
+    | Int8_unsigned   -> 255
+    | Int16_signed    -> 32767
+    | Int16_unsigned  -> 65535
+    | Int             -> max_int
+    | Int32           -> Int32.max_int
+    | Int64           -> Int64.max_int
+    | Nativeint       -> Nativeint.max_int
+    | Complex32       -> invalid_arg "max_val of Complex32"
+    | Complex64       -> invalid_arg "max_val of Complex64"
+    | Char            -> '\255'
+
+  let bytes_per_element : type o r. (o, r) kind -> int = function
+    | Float32         -> 4
+    | Float64         -> 8
+    | Int8_signed     -> 1
+    | Int8_unsigned   -> 1
+    | Int16_signed    -> 2
+    | Int16_unsigned  -> 2
+    | Int             -> Sys.word_size / 8    (* word_size in bits *)
+    | Int32           -> 4
+    | Int64           -> 8
+    | Nativeint       -> Sys.word_size / 8
+    | Complex32       -> 8
+    | Complex64       -> 16
+    | Char            -> 1
+
+  let to_pp : type o r. (o, r) kind -> (Format.formatter -> o -> unit) = function
+    | Float32         -> Format.pp_print_float
+    | Float64         -> Format.pp_print_float
+    | Int8_signed     -> Format.pp_print_int
+    | Int8_unsigned   -> Format.pp_print_int
+    | Int16_signed    -> Format.pp_print_int
+    | Int16_unsigned  -> Format.pp_print_int
+    | Int             -> Format.pp_print_int
+    | Int32           -> fun fmt x -> Format.pp_print_string fmt (Int32.to_string x)
+    | Int64           -> fun fmt x -> Format.pp_print_string fmt (Int64.to_string x)
+    | Nativeint       -> fun fmt x -> Format.pp_print_string fmt (Nativeint.to_string x)
+    | Complex32       -> let pp_sep fmt () = Format.pp_print_char fmt ',' in
+                         fun fmt x ->
+                           Format.pp_print_list ~pp_sep Format.pp_print_float fmt
+                             Complex.[x.re; x.im]
+    | Complex64       -> let pp_sep fmt () = Format.pp_print_char fmt ',' in
+                         fun fmt x ->
+                           Format.pp_print_list ~pp_sep Format.pp_print_float fmt
+                             Complex.[x.re; x.im]
+    | Char            -> Format.pp_print_char
+
+end (* Kind *)
 
 #if OCAML_VERSION >= (4, 05, 0)
 module Array0 = struct
@@ -71,38 +295,155 @@ module Array0 = struct
 end (* Array0 *)
 #endif
 
+#define dimorphic(arr,kind1,lkind1,kind2,lkind2)\
+    module kind2 = struct \
+      let fold_left2 ~f ~init u v   = [%arr.lkind1.lkind2 fold_left2 f init u v] \
+      let fold_right2 ~f ~init u v  = [%arr.lkind1.lkind2 fold_right2 f init u v] \
+      let foldi2 ~f ~init u v       = [%arr.lkind1.lkind2 foldi_left2 f init u v] \
+      let iter2 ~f u v              = [%arr.lkind1.lkind2 iter2 f u v] \
+      let iteri2 ~f u v             = [%arr.lkind1.lkind2 iteri2 f u v] \
+      let map ~f u                  = [%arr.lkind1.lkind2 map f u] \
+      let mapi ~f u                 = [%arr.lkind1.lkind2 mapi f u ] \
+    end (* kind2 *) \
+
+#define monomorphic(kind,lowercase_kind)\
+  module kind = struct \
+    let fold_left ~f ~init v  = [%open1.lowercase_kind fold_left f init v] \
+    let fold_right ~f ~init v = [%open1.lowercase_kind fold_right f init v] \
+    let foldi ~f ~init v      = [%open1.lowercase_kind foldi_left f init v] \
+    let reduce_left ~f v      = [%open1.lowercase_kind reduce_left f v] \
+    let reduce_right ~f v     = [%open1.lowercase_kind reduce_right f v] \
+    let reducei ~f v          = [%open1.lowercase_kind reducei_left f v] \
+    let iter ~f v             = [%open1.lowercase_kind iter f v] \
+    let iteri ~f v            = [%open1.lowercase_kind iteri f v] \
+    let modify ~f v           = [%open1.lowercase_kind modify f v] \
+    let modifyi ~f v          = [%open1.lowercase_kind modifyi f v] \
+    let init ~f l n = \
+      let v = create lowercase_kind l n in \
+      modifyi ~f:(fun i _v -> f i) v; \
+      v \
+    let to_array v = \
+      let o = Layout.offset (layout v) in \
+      let a = Array.make (dim v) (unsafe_get v o) in \
+      iteri v ~f:(fun i x -> Array.unsafe_set a (i - o) x); \
+      a\
+    let of_array a l = \
+      let o = Layout.offset l in \
+      let n = Array.length a in \
+      init l n ~f:(fun i -> Array.unsafe_get a (i - o)) \
+      dimorphic(open1,kind,lowercase_kind,Float32,float32) \
+      dimorphic(open1,kind,lowercase_kind,Float64,float64) \
+      dimorphic(open1,kind,lowercase_kind,Int8_signed,int8_signed) \
+      dimorphic(open1,kind,lowercase_kind,Int8_unsigned,int8_unsigned) \
+      dimorphic(open1,kind,lowercase_kind,Int16_signed,int16_signed) \
+      dimorphic(open1,kind,lowercase_kind,Int16_unsigned,int16_unsigned) \
+      dimorphic(open1,kind,lowercase_kind,Int,int) \
+      dimorphic(open1,kind,lowercase_kind,Int32,int32) \
+      dimorphic(open1,kind,lowercase_kind,Int64,int64) \
+      dimorphic(open1,kind,lowercase_kind,Nativeint,nativeint) \
+      dimorphic(open1,kind,lowercase_kind,Complex32,complex32) \
+      dimorphic(open1,kind,lowercase_kind,Complex64,complex64) \
+      dimorphic(open1,kind,lowercase_kind,Char,char) \
+  end (* kind *) \
+
 module Array1 = struct
   include Bigarray.Array1
 
+  (* We need to have a generic version for now to have non-sequential
+   * slicing, for Array2 (... and upwards).
+   * *)
   let init k l n f =
     let m = create k l n in
-    foreach l n (fun i -> set m i (f i));
+    Layout.foreach l n (fun i -> set m i (f i));
     m
+
+  let copy a =
+    let b = create (kind a) (layout a) (dim a) in
+    blit a b;
+    b
 
   let to_array ~f a =
     let d = dim a in
-    let o = to_offset (layout a) in
-    Array.init d (fun i -> f (unsafe_get a (o i)))
+    let o = Layout.offset (layout a) in
+    Array.init d (fun i -> f (unsafe_get a (o + i)))
+
+  monomorphic(Float32,float32)
+  monomorphic(Float64,float64)
+  monomorphic(Int8_signed,int8_signed)
+  monomorphic(Int8_unsigned,int8_unsigned)
+  monomorphic(Int16_signed,int16_signed)
+  monomorphic(Int16_unsigned,int16_unsigned)
+  monomorphic(Int,int)
+  monomorphic(Int32,int32)
+  monomorphic(Int64,int64)
+  monomorphic(Nativeint,nativeint)
+  monomorphic(Complex32,complex32)
+  monomorphic(Complex64,complex64)
+  monomorphic(Char,char)
 
 end (* Array1 *)
+
+#define monomorphic2(kind,lowercase_kind)\
+  module kind = struct \
+    let fold_left ~f ~init v  = [%open2.lowercase_kind fold_left f init v] \
+    let fold_right ~f ~init v = [%open2.lowercase_kind fold_right f init v] \
+    let foldi ~f ~init v      = [%open2.lowercase_kind foldi_left f init v] \
+    let reduce_left ~f v      = [%open2.lowercase_kind reduce_left f v] \
+    let reduce_right ~f v     = [%open2.lowercase_kind reduce_right f v] \
+    let reducei ~f v          = [%open2.lowercase_kind reducei_left f v] \
+    let iter ~f v             = [%open2.lowercase_kind iter f v] \
+    let iteri ~f v            = [%open2.lowercase_kind iteri f v] \
+    let modify ~f v           = [%open2.lowercase_kind modify f v] \
+    let modifyi ~f v          = [%open2.lowercase_kind modifyi f v] \
+    let init ~f l n1 n2 = \
+      let v = create lowercase_kind l n1 n2 in \
+      modifyi ~f:(fun i j _v -> f i j) v; \
+      v \
+    let to_array v = \
+      let o = Layout.offset (layout v) in \
+      let e = unsafe_get v o o in \
+      let d1 = dim1 v in \
+      let d2 = dim2 v in \
+      let a = Array.init d1 (fun _ -> Array.init d2 (fun _ -> e)) in \
+      iteri v ~f:(fun i j x -> Array.unsafe_set (Array.unsafe_get a (i - o)) (j - o) x); \
+      a\
+    let of_array a l = \
+      let o = Layout.offset l in \
+      let n1 = Array.length a in \
+      let n2 = if n1 = 0 then 0 else Array.length a.(0) in \
+      init l n1 n2 ~f:(fun i j -> Array.unsafe_get (Array.unsafe_get a (j - o)) (i - o)) \
+    dimorphic(open2,kind,lowercase_kind,Float32,float32) \
+    dimorphic(open2,kind,lowercase_kind,Float64,float64) \
+    dimorphic(open2,kind,lowercase_kind,Int8_signed,int8_signed) \
+    dimorphic(open2,kind,lowercase_kind,Int8_unsigned,int8_unsigned) \
+    dimorphic(open2,kind,lowercase_kind,Int16_signed,int16_signed) \
+    dimorphic(open2,kind,lowercase_kind,Int16_unsigned,int16_unsigned) \
+    dimorphic(open2,kind,lowercase_kind,Int,int) \
+    dimorphic(open2,kind,lowercase_kind,Int32,int32) \
+    dimorphic(open2,kind,lowercase_kind,Int64,int64) \
+    dimorphic(open2,kind,lowercase_kind,Nativeint,nativeint) \
+    dimorphic(open2,kind,lowercase_kind,Complex32,complex32) \
+    dimorphic(open2,kind,lowercase_kind,Complex64,complex64) \
+    dimorphic(open2,kind,lowercase_kind,Char,char) \
+  end (* kind *) \
 
 module Array2 = struct
   include Bigarray.Array2
 
   let init k l d1 d2 f =
     let m = create k l d1 d2 in
-    foreach l d1 (fun i ->
-      foreach l d2 (fun j ->
-        set m i j (f i j)));
+    Layout.foreach l d1 (fun i ->
+      Layout.foreach l d2 (fun j ->
+        unsafe_set m i j (f i j)));
     m
 
   let to_array ~f a =
     let d1 = dim1 a in
     let d2 = dim2 a in
-    let o = to_offset (layout a) in
+    let o = Layout.offset (layout a) in
     Array.init d1 (fun i ->
       Array.init d2 (fun j ->
-        f (unsafe_get a (o i) (o j))))
+        f (unsafe_get a (o + i) (o + j))))
 
   let natural_slice_indices (type l) (m : ('a, 'b, l) t) =
     match layout m with
@@ -122,28 +463,88 @@ module Array2 = struct
     | Fortran_layout -> Array1.init (kind m) l (dim2 m) (unsafe_get m i)
     | C_layout       -> Array1.init (kind m) l (dim1 m) (fun j -> unsafe_get m j i)
 
+  monomorphic2(Float32,float32)
+  monomorphic2(Float64,float64)
+  monomorphic2(Int8_signed,int8_signed)
+  monomorphic2(Int8_unsigned,int8_unsigned)
+  monomorphic2(Int16_signed,int16_signed)
+  monomorphic2(Int16_unsigned,int16_unsigned)
+  monomorphic2(Int,int)
+  monomorphic2(Int32,int32)
+  monomorphic2(Int64,int64)
+  monomorphic2(Nativeint,nativeint)
+  monomorphic2(Complex32,complex32)
+  monomorphic2(Complex64,complex64)
+  monomorphic2(Char,char)
+
 end (* Array2 *)
+
+#define monomorphic3(kind,lowercase_kind)\
+  module kind = struct \
+    let fold_left ~f ~init v  = [%open3.lowercase_kind fold_left f init v] \
+    let fold_right ~f ~init v = [%open3.lowercase_kind fold_right f init v] \
+    let foldi ~f ~init v      = [%open3.lowercase_kind foldi_left f init v] \
+    let reduce_left ~f v      = [%open3.lowercase_kind reduce_left f v] \
+    let reduce_right ~f v     = [%open3.lowercase_kind reduce_right f v] \
+    let reducei ~f v          = [%open3.lowercase_kind reducei_left f v] \
+    let iter ~f v             = [%open3.lowercase_kind iter f v] \
+    let iteri ~f v            = [%open3.lowercase_kind iteri f v] \
+    let modify ~f v           = [%open3.lowercase_kind modify f v] \
+    let modifyi ~f v          = [%open3.lowercase_kind modifyi f v] \
+    let init ~f l n1 n2 n3 = \
+      let v = create lowercase_kind l n1 n2 n3 in \
+      modifyi ~f:(fun i j k _v -> f i j k) v; \
+      v \
+    let to_array v = \
+      let o = Layout.offset (layout v) in \
+      let e = unsafe_get v o o o in \
+      let d1 = dim1 v in \
+      let d2 = dim2 v in \
+      let d3 = dim3 v in \
+      let a = Array.init d1 (fun _ -> Array.init d2 (fun _ -> Array.init d3 (fun _ -> e))) in \
+      iteri v ~f:(fun i j k x -> Array.unsafe_set (Array.unsafe_get (Array.unsafe_get a (i - o)) (j - o)) (k - o) x); \
+      a\
+    let of_array a l = \
+      let o = Layout.offset l in \
+      let n1 = Array.length a in \
+      let n2 = if n1 = 0 then 0 else Array.length a.(0) in \
+      let n3 = if n2 = 0 then 0 else Array.length a.(0).(0) in \
+      init l n1 n2 n3 ~f:(fun i j k -> Array.unsafe_get (Array.unsafe_get (Array.unsafe_get a (k - o)) (j - o)) (i - o)) \
+    dimorphic(open3,kind,lowercase_kind,Float32,float32) \
+    dimorphic(open3,kind,lowercase_kind,Float64,float64) \
+    dimorphic(open3,kind,lowercase_kind,Int8_signed,int8_signed) \
+    dimorphic(open3,kind,lowercase_kind,Int8_unsigned,int8_unsigned) \
+    dimorphic(open3,kind,lowercase_kind,Int16_signed,int16_signed) \
+    dimorphic(open3,kind,lowercase_kind,Int16_unsigned,int16_unsigned) \
+    dimorphic(open3,kind,lowercase_kind,Int,int) \
+    dimorphic(open3,kind,lowercase_kind,Int32,int32) \
+    dimorphic(open3,kind,lowercase_kind,Int64,int64) \
+    dimorphic(open3,kind,lowercase_kind,Nativeint,nativeint) \
+    dimorphic(open3,kind,lowercase_kind,Complex32,complex32) \
+    dimorphic(open3,kind,lowercase_kind,Complex64,complex64) \
+    dimorphic(open3,kind,lowercase_kind,Char,char) \
+  end (* kind *) \
 
 module Array3 = struct
   include Bigarray.Array3
 
   let init k l d1 d2 d3 f =
     let m = create k l d1 d2 d3 in
-    foreach l d1 (fun i ->
-      foreach l d2 (fun j ->
-        foreach l d3 (fun k ->
-          set m i j k (f i j k))));
+    Layout.foreach l d1 (fun i ->
+      Layout.foreach l d2 (fun j ->
+        Layout.foreach l d3 (fun k ->
+          unsafe_set m i j k (f i j k))));
     m
 
   let to_array ~f a =
     let d1 = dim1 a in
     let d2 = dim2 a in
     let d3 = dim3 a in
-    let o = to_offset (layout a) in
+    let o = Layout.offset (layout a) in
     Array.init d1 (fun i ->
       Array.init d2 (fun j ->
         Array.init d3 (fun k ->
-          f (unsafe_get a (o i) (o j) (o k)))))
+          f (unsafe_get a (o + i) (o + j) (o + k)))))
 
   let natural_slice_indices (type l) (ar3 : ('a, 'b, l) t) =
     match layout ar3 with
@@ -164,30 +565,51 @@ module Array3 = struct
     | C_layout       ->
       Array2.init (kind m) l (dim1 m) (dim2 m) (fun j k -> unsafe_get m j k i)
 
+  monomorphic3(Float32,float32)
+  monomorphic3(Float64,float64)
+  monomorphic3(Int8_signed,int8_signed)
+  monomorphic3(Int8_unsigned,int8_unsigned)
+  monomorphic3(Int16_signed,int16_signed)
+  monomorphic3(Int16_unsigned,int16_unsigned)
+  monomorphic3(Int,int)
+  monomorphic3(Int32,int32)
+  monomorphic3(Int64,int64)
+  monomorphic3(Nativeint,nativeint)
+  monomorphic3(Complex32,complex32)
+  monomorphic3(Complex64,complex64)
+  monomorphic3(Char,char)
+
 end (* Array3 *)
 
 module Genarray = struct
   include Bigarray.Genarray
 
-  let foreachl dims isf f =
-    let rec loop acc =
-      function
-      | []      -> f (List.rev acc |> Array.of_list)
-      | h :: tl ->
-        if isf then
-          for i = 1 to h do
-            loop (i :: acc) tl
-          done
-        else
-          for i = 0 to h - 1 do
-            loop (i :: acc) tl
-          done
+  let foreachl dims l f =
+    let num_dimensions = Array.length dims in
+    let p = Array.fold_left ( * ) 1 dims in
+    let z = Layout.offset l in
+    let r = Array.make num_dimensions z in
+    let x = Array.map (fun d -> d - 1 + z) dims in
+    let succ () =
+      let rec loop j =
+        if j = num_dimensions then
+          ()
+        else if r.(j) = x.(j) then begin
+          r.(j) <- z;
+          loop (j + 1)
+        end else
+          r.(j) <- succ r.(j)
+      in
+      loop 0
     in
-    loop [] (Array.to_list dims)
+    for j = 0 to p - 1 do
+      let () = f r in
+      succ ()
+    done
 
   let init k l d f =
     let m = create k l d in
-    foreachl d (isf l) (fun arr -> set m arr (f arr));
+    foreachl d l (fun arr -> set m arr (f arr));
     m
 
   (* Seems like the natural thing to do. *)
