@@ -295,16 +295,16 @@ module Array0 = struct
 end (* Array0 *)
 #endif
 
-#define dimorphic(kind1,lkind1,kind2,lkind2)\
-  module kind2 = struct \
-    let fold_left2 ~f ~init u v   = [%open1.lkind1.lkind2 fold_left2 f init u v] \
-    let fold_right2 ~f ~init u v  = [%open1.lkind1.lkind2 fold_right2 f init u v] \
-    let foldi2 ~f ~init u v       = [%open1.lkind1.lkind2 foldi_left2 f init u v] \
-    let iter2 ~f u v              = [%open1.lkind1.lkind2 iter2 f u v] \
-    let iteri2 ~f u v             = [%open1.lkind1.lkind2 iteri2 f u v] \
-    let map ~f u                  = [%open1.lkind1.lkind2 map f u] \
-    let mapi ~f u                 = [%open1.lkind1.lkind2 mapi f u ] \
-  end (* kind2 *)
+#define dimorphic(arr,kind1,lkind1,kind2,lkind2)\
+    module kind2 = struct \
+      let fold_left2 ~f ~init u v   = [%arr.lkind1.lkind2 fold_left2 f init u v] \
+      let fold_right2 ~f ~init u v  = [%arr.lkind1.lkind2 fold_right2 f init u v] \
+      let foldi2 ~f ~init u v       = [%arr.lkind1.lkind2 foldi_left2 f init u v] \
+      let iter2 ~f u v              = [%arr.lkind1.lkind2 iter2 f u v] \
+      let iteri2 ~f u v             = [%arr.lkind1.lkind2 iteri2 f u v] \
+      let map ~f u                  = [%arr.lkind1.lkind2 map f u] \
+      let mapi ~f u                 = [%arr.lkind1.lkind2 mapi f u ] \
+    end (* kind2 *) \
 
 #define monomorphic(kind,lowercase_kind)\
   module kind = struct \
@@ -331,20 +331,20 @@ end (* Array0 *)
       let o = Layout.offset l in \
       let n = Array.length a in \
       init l n ~f:(fun i -> Array.unsafe_get a (i - o)) \
-    dimorphic(kind,lowercase_kind,Float32,float32) \
-    dimorphic(kind,lowercase_kind,Float64,float64) \
-    dimorphic(kind,lowercase_kind,Int8_signed,int8_signed) \
-    dimorphic(kind,lowercase_kind,Int8_unsigned,int8_unsigned) \
-    dimorphic(kind,lowercase_kind,Int16_signed,int16_signed) \
-    dimorphic(kind,lowercase_kind,Int16_unsigned,int16_unsigned) \
-    dimorphic(kind,lowercase_kind,Int,int) \
-    dimorphic(kind,lowercase_kind,Int32,int32) \
-    dimorphic(kind,lowercase_kind,Int64,int64) \
-    dimorphic(kind,lowercase_kind,Nativeint,nativeint) \
-    dimorphic(kind,lowercase_kind,Complex32,complex32) \
-    dimorphic(kind,lowercase_kind,Complex64,complex64) \
-    dimorphic(kind,lowercase_kind,Char,char) \
-  end (* m *)
+      dimorphic(open1,kind,lowercase_kind,Float32,float32) \
+      dimorphic(open1,kind,lowercase_kind,Float64,float64) \
+      dimorphic(open1,kind,lowercase_kind,Int8_signed,int8_signed) \
+      dimorphic(open1,kind,lowercase_kind,Int8_unsigned,int8_unsigned) \
+      dimorphic(open1,kind,lowercase_kind,Int16_signed,int16_signed) \
+      dimorphic(open1,kind,lowercase_kind,Int16_unsigned,int16_unsigned) \
+      dimorphic(open1,kind,lowercase_kind,Int,int) \
+      dimorphic(open1,kind,lowercase_kind,Int32,int32) \
+      dimorphic(open1,kind,lowercase_kind,Int64,int64) \
+      dimorphic(open1,kind,lowercase_kind,Nativeint,nativeint) \
+      dimorphic(open1,kind,lowercase_kind,Complex32,complex32) \
+      dimorphic(open1,kind,lowercase_kind,Complex64,complex64) \
+      dimorphic(open1,kind,lowercase_kind,Char,char) \
+  end (* kind *) \
 
 module Array1 = struct
   include Bigarray.Array1
@@ -383,6 +383,50 @@ module Array1 = struct
 
 end (* Array1 *)
 
+#define monomorphic2(kind,lowercase_kind)\
+  module kind = struct \
+    let fold_left ~f ~init v  = [%open2.lowercase_kind fold_left f init v] \
+    let fold_right ~f ~init v = [%open2.lowercase_kind fold_right f init v] \
+    let foldi ~f ~init v      = [%open2.lowercase_kind foldi_left f init v] \
+    let reduce_left ~f v      = [%open2.lowercase_kind reduce_left f v] \
+    let reduce_right ~f v     = [%open2.lowercase_kind reduce_right f v] \
+    let reducei ~f v          = [%open2.lowercase_kind reducei_left f v] \
+    let iter ~f v             = [%open2.lowercase_kind iter f v] \
+    let iteri ~f v            = [%open2.lowercase_kind iteri f v] \
+    let modify ~f v           = [%open2.lowercase_kind modify f v] \
+    let modifyi ~f v          = [%open2.lowercase_kind modifyi f v] \
+    let init ~f l n1 n2 = \
+      let v = create lowercase_kind l n1 n2 in \
+      modifyi ~f:(fun i j _v -> f i j) v; \
+      v \
+    let to_array v = \
+      let o = Layout.offset (layout v) in \
+      let e = unsafe_get v o o in \
+      let d1 = dim1 v in \
+      let d2 = dim2 v in \
+      let a = Array.init d1 (fun _ -> Array.init d2 (fun _ -> e)) in \
+      iteri v ~f:(fun i j x -> Array.unsafe_set (Array.unsafe_get a (i - o)) (j - o) x); \
+      a\
+    let of_array a l = \
+      let o = Layout.offset l in \
+      let n1 = Array.length a in \
+      let n2 = if n1 = 0 then 0 else Array.length a.(0) in \
+      init l n1 n2 ~f:(fun i j -> Array.unsafe_get (Array.unsafe_get a (j - o)) (i - o)) \
+    dimorphic(open2,kind,lowercase_kind,Float32,float32) \
+    dimorphic(open2,kind,lowercase_kind,Float64,float64) \
+    dimorphic(open2,kind,lowercase_kind,Int8_signed,int8_signed) \
+    dimorphic(open2,kind,lowercase_kind,Int8_unsigned,int8_unsigned) \
+    dimorphic(open2,kind,lowercase_kind,Int16_signed,int16_signed) \
+    dimorphic(open2,kind,lowercase_kind,Int16_unsigned,int16_unsigned) \
+    dimorphic(open2,kind,lowercase_kind,Int,int) \
+    dimorphic(open2,kind,lowercase_kind,Int32,int32) \
+    dimorphic(open2,kind,lowercase_kind,Int64,int64) \
+    dimorphic(open2,kind,lowercase_kind,Nativeint,nativeint) \
+    dimorphic(open2,kind,lowercase_kind,Complex32,complex32) \
+    dimorphic(open2,kind,lowercase_kind,Complex64,complex64) \
+    dimorphic(open2,kind,lowercase_kind,Char,char) \
+  end (* kind *) \
+
 module Array2 = struct
   include Bigarray.Array2
 
@@ -419,7 +463,67 @@ module Array2 = struct
     | Fortran_layout -> Array1.init (kind m) l (dim2 m) (unsafe_get m i)
     | C_layout       -> Array1.init (kind m) l (dim1 m) (fun j -> unsafe_get m j i)
 
+  monomorphic2(Float32,float32)
+  monomorphic2(Float64,float64)
+  monomorphic2(Int8_signed,int8_signed)
+  monomorphic2(Int8_unsigned,int8_unsigned)
+  monomorphic2(Int16_signed,int16_signed)
+  monomorphic2(Int16_unsigned,int16_unsigned)
+  monomorphic2(Int,int)
+  monomorphic2(Int32,int32)
+  monomorphic2(Int64,int64)
+  monomorphic2(Nativeint,nativeint)
+  monomorphic2(Complex32,complex32)
+  monomorphic2(Complex64,complex64)
+  monomorphic2(Char,char)
+
 end (* Array2 *)
+
+#define monomorphic3(kind,lowercase_kind)\
+  module kind = struct \
+    let fold_left ~f ~init v  = [%open3.lowercase_kind fold_left f init v] \
+    let fold_right ~f ~init v = [%open3.lowercase_kind fold_right f init v] \
+    let foldi ~f ~init v      = [%open3.lowercase_kind foldi_left f init v] \
+    let reduce_left ~f v      = [%open3.lowercase_kind reduce_left f v] \
+    let reduce_right ~f v     = [%open3.lowercase_kind reduce_right f v] \
+    let reducei ~f v          = [%open3.lowercase_kind reducei_left f v] \
+    let iter ~f v             = [%open3.lowercase_kind iter f v] \
+    let iteri ~f v            = [%open3.lowercase_kind iteri f v] \
+    let modify ~f v           = [%open3.lowercase_kind modify f v] \
+    let modifyi ~f v          = [%open3.lowercase_kind modifyi f v] \
+    let init ~f l n1 n2 n3 = \
+      let v = create lowercase_kind l n1 n2 n3 in \
+      modifyi ~f:(fun i j k _v -> f i j k) v; \
+      v \
+    let to_array v = \
+      let o = Layout.offset (layout v) in \
+      let e = unsafe_get v o o o in \
+      let d1 = dim1 v in \
+      let d2 = dim2 v in \
+      let d3 = dim3 v in \
+      let a = Array.init d1 (fun _ -> Array.init d2 (fun _ -> Array.init d3 (fun _ -> e))) in \
+      iteri v ~f:(fun i j k x -> Array.unsafe_set (Array.unsafe_get (Array.unsafe_get a (i - o)) (j - o)) (k - o) x); \
+      a\
+    let of_array a l = \
+      let o = Layout.offset l in \
+      let n1 = Array.length a in \
+      let n2 = if n1 = 0 then 0 else Array.length a.(0) in \
+      let n3 = if n2 = 0 then 0 else Array.length a.(0).(0) in \
+      init l n1 n2 n3 ~f:(fun i j k -> Array.unsafe_get (Array.unsafe_get (Array.unsafe_get a (k - o)) (j - o)) (i - o)) \
+    dimorphic(open3,kind,lowercase_kind,Float32,float32) \
+    dimorphic(open3,kind,lowercase_kind,Float64,float64) \
+    dimorphic(open3,kind,lowercase_kind,Int8_signed,int8_signed) \
+    dimorphic(open3,kind,lowercase_kind,Int8_unsigned,int8_unsigned) \
+    dimorphic(open3,kind,lowercase_kind,Int16_signed,int16_signed) \
+    dimorphic(open3,kind,lowercase_kind,Int16_unsigned,int16_unsigned) \
+    dimorphic(open3,kind,lowercase_kind,Int,int) \
+    dimorphic(open3,kind,lowercase_kind,Int32,int32) \
+    dimorphic(open3,kind,lowercase_kind,Int64,int64) \
+    dimorphic(open3,kind,lowercase_kind,Nativeint,nativeint) \
+    dimorphic(open3,kind,lowercase_kind,Complex32,complex32) \
+    dimorphic(open3,kind,lowercase_kind,Complex64,complex64) \
+    dimorphic(open3,kind,lowercase_kind,Char,char) \
+  end (* kind *) \
 
 module Array3 = struct
   include Bigarray.Array3
@@ -460,6 +564,20 @@ module Array3 = struct
       Array2.init (kind m) l (dim2 m) (dim3 m) (unsafe_get m i)
     | C_layout       ->
       Array2.init (kind m) l (dim1 m) (dim2 m) (fun j k -> unsafe_get m j k i)
+
+  monomorphic3(Float32,float32)
+  monomorphic3(Float64,float64)
+  monomorphic3(Int8_signed,int8_signed)
+  monomorphic3(Int8_unsigned,int8_unsigned)
+  monomorphic3(Int16_signed,int16_signed)
+  monomorphic3(Int16_unsigned,int16_unsigned)
+  monomorphic3(Int,int)
+  monomorphic3(Int32,int32)
+  monomorphic3(Int64,int64)
+  monomorphic3(Nativeint,nativeint)
+  monomorphic3(Complex32,complex32)
+  monomorphic3(Complex64,complex64)
+  monomorphic3(Char,char)
 
 end (* Array3 *)
 
